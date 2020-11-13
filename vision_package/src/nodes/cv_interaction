@@ -1,0 +1,130 @@
+#!/usr/bin/env python
+
+import sys
+import rospy
+import cv2
+
+from std_msgs.msg import String
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
+
+
+class face_detection:
+
+  def __init__(self):
+    """ 
+    Initialization
+    """
+    
+    # self.image_pub = rospy.Publisher("image_topic_2",Image)
+
+    # Load cascade configuration files 
+    # (currently saved in same directory as the node, to be moved into config)
+    self.faceCascade = cv2.CascadeClassifier("face_cascade.xml")
+    self.eyeCascade  = cv2.CascadeClassifier("eye_cascade.xml")
+
+    # Initialize CvBridge object, which allows conversion between ROS message
+    # and OpenCV Image data type
+    self.bridge = CvBridge()
+
+    # Initilize subscriber, reading a ROS Image message type
+    # (the topic will be published by the Baxter or the rosbag capture)
+    # NOTE: Head camera must be initilized first (Tom to create script for this)
+    self.image_subscriber = rospy.Subscriber("/cameras/head_camera/image",
+                                              Image,  
+                                              self.callback ) 
+
+    self.dx = []
+    self.dy = []
+    self.lockonThreshold = 2   # Pixel hysteresis
+    self.nSamples = 30         # Number of samples to track 
+    self.lastX = 0
+    self.lastY = 0
+
+
+  def callback(self,data):
+    """
+    Callback for image subscriber
+    """
+
+    # Attempt to pull frame from ROS message
+    try:
+      # Pull image as an 8-bit RGB image
+      self.incomingFrame = self.bridge.imgmsg_to_cv2( data , "bgr8" )
+    except CvBridgeError as e:
+      # Print error if incoming frame cannot be pulled
+      print(e)
+
+    # Our operations on the frame come here
+    # Use OpenCV to convert the incoming frame into a grayscale frame
+    self.grayFrame = cv2.cvtColor(self.incomingFrame, cv2.COLOR_BGR2GRAY)
+    
+    # Run the face cascade and look for faces, then output the number of faces found
+    self.faces = self.faceCascade.detectMultiScale(self.grayFrame, 1.3, 10)
+    
+
+    # Iterate over detected faces and draw a frame around each 
+    for (x, y, w, h) in self.faces:
+      
+      # Check length of dx and pop earliest element
+      if len(self.dx) > self.nSamples:
+        self.dx.pop(0)
+      if len(self.dy) > self.nSamples:
+        self.dy.pop(0)
+
+      # Check if face has stabilized
+      self.dx.append(abs(x - self.lastX))
+      self.dy.append(abs(y - self.lastY))
+
+      # Find average over last 10 frames
+      self.dxAverage = sum(self.dx)/len(self.dx)
+      self.dyAverage = sum(self.dy)/len(self.dy)
+
+
+      # print ( "Average: " , self.dxAverage , ", " , self.dyAverage
+      # Print centroid of detected faces in video pixel frame
+      # print ( len(self.faces) , "face(s) found, centroid(s) at: " , x + (w / 2) , ", " , y + (h / 2))
+        
+      # Draw a blue frame
+      if ( self.dxAverage < self.lockonThreshold ) and ( self.dxAverage < self.lockonThreshold ):
+        print ("LOCK-ON ACHIEVED!") 
+        cv2.rectangle(self.incomingFrame, (x, y), (x+w, y+h), (0, 0, 255), 4)
+      else: 
+        cv2.rectangle(self.incomingFrame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+      
+      self.lastX = x
+      self.lastY = y 
+      
+      # Highlight regions of interest (ROI)
+      roi_gray = self.grayFrame[y:y+h, x:x+w]
+      roi_color = self.incomingFrame[y:y+h, x:x+w]
+
+      # Run eye cascade within the grayscale ROI
+      eyes = self.eyeCascade.detectMultiScale(roi_gray)
+      
+      # Draw a green frame over the eyes
+      for (ex, ey, ew, eh) in eyes:
+          cv2.rectangle(roi_color, (ex, ey), (ex+ew, ey+eh), (0, 255, 0), 1)
+
+    # Display the image on the screen
+    cv2.imshow("Image window", self.incomingFrame)
+    cv2.waitKey(1)  
+
+    # Publish updated image (not needed, keeping for code reference)
+    # try:
+    #   pass
+    #   # self.image_pub.publish(self.bridge.cv2_to_imgmsg(self.incomingFrame, "bgr8"))
+    # except CvBridgeError as e:
+    #   print(e)
+
+def main(args):
+  find_faces = face_detection()
+  rospy.init_node('face_detection', anonymous=True)
+  try:
+    rospy.spin()
+  except KeyboardInterrupt:
+    print("Shutting down")
+  cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    main(sys.argv)
