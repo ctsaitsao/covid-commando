@@ -1,0 +1,2 @@
+vision_package
+-DCATKIN_DEVEL_PREFIX=/home/tom/ros/final-project-covid_commando/devel -DCMAKE_INSTALL_PREFIX=/home/tom/ros/final-project-covid_commando/install -G Unix Makefiles

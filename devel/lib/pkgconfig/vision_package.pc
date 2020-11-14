@@ -1,0 +1,8 @@
+prefix=/home/tom/ros/final-project-covid_commando/devel
+
+Name: vision_package
+Description: Description of vision_package
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
