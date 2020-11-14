@@ -1,0 +1,52 @@
+#! usr/bin/env python
+
+"""
+    Inverse Kinematics for Baxter end effector 
+"""
+
+import rospy
+import baxter_interface
+from baxter_interface import CHECK_VERSION
+
+class ArmMover(object):
+
+    def __init__(self):
+        # Limbs 
+        self._left_arm = baxter_interface.limb.Limb("left")
+        self._right_arm = baxter_interface.limb.Limb("right")
+        # Joint Names
+        self._left_joint_names = self._left_arm.joint_names()
+        self._right_joint_names = self._right_arm.joint_names()
+        # Enable Robot 
+        print("Getting robot state... ")
+        self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
+        self._init_state = self._rs.state().enabled
+        print("Enabling robot... ")
+        self._rs.enable()
+    
+
+    def clean_shutdown(self):
+        print("\nExiting...")
+        self._left_arm.move_to_neutral()
+        self._right_arm.move_to_neutral()
+        if not self._init_state:
+            print("Disabling robot...")
+            self._rs.disable()
+    
+    def go_to_pose(self):
+        angles = [0]*len(self._left_joint_names)
+        positions = dict(zip(self._left_joint_names,angles))
+        print("Moving to joint positions...")
+        self._left_arm.move_to_joint_positions(positions)
+        print("Done")
+
+def main():
+    rospy.init_node("ArmMover")
+    arm_mover_node = ArmMover()
+
+    # Register clean shutdown
+    rospy.on_shutdown(arm_mover_node.clean_shutdown)
+
+if __name__ == "__main__":
+    main()
+    
