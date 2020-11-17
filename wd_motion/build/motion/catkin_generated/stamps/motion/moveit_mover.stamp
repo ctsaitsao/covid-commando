@@ -1,0 +1,65 @@
+#! usr/bin/env python
+
+"""
+    Inverse Kinematics for Baxter end effector using moveit package 
+"""
+import sys
+import rospy
+import baxter_interface
+from baxter_interface import CHECK_VERSION
+import moveit_commander
+from geometry_msgs.msg import Pose, PoseStamped, Point
+from moveit_commander.conversions import pose_to_list, list_to_pose
+
+class Mover(object):
+    def __init__(self):
+        self.robot = moveit_commander.RobotCommander()
+        self.scene = moveit_commander.PlanningSceneInterface()
+        self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm")
+        # Enable Robot 
+        print("Getting robot state... ")
+        self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
+        self._init_state = self._rs.state().enabled
+        print("Enabling robot... ")
+        self._rs.enable()
+    
+    def go_to_pose(self):
+        """
+            Move to some position
+        """
+        left_current_pose = self.left_arm_group.get_current_pose(end_effector_link="left_gripper").pose
+        left_target_pose = left_current_pose
+        left_target_pose.position.x = left_current_pose.position.x - 0.1
+        left_target_pose.position.z = left_current_pose.position.z + 0.2
+
+
+        # Set target
+        print("Setting Target...")
+        self.left_arm_group.set_pose_target(left_target_pose)
+
+        # Plan 
+        print("Planning...")
+        plan = self.left_arm_group.plan()
+
+        # Execute 
+        print("Executing...")
+        if not plan.success:
+            print("Error, planning failed")
+        else:
+            self.left_arm_group.go(wait=True)
+        
+        # Clear pose targets 
+        self.left_arm_group.clear_pose_targets()
+
+def main():
+    moveit_commander.roscpp_initialize(sys.argv)
+    rospy.init_node('moveit_mover')
+    m = Mover()
+    m.go_to_pose()
+    rospy.spin()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass

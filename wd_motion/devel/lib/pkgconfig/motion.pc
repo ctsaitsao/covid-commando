@@ -1,0 +1,8 @@
+prefix=/home/skrdown/ME495/final-project-covid_commando/wd_motion/devel
+
+Name: motion
+Description: Description of motion
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: baxter_interface geometry_msgs message_runtime moveit_commander moveit_msgs rospy
