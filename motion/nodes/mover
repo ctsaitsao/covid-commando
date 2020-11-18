@@ -1,65 +1,115 @@
 #! usr/bin/env python
 
 """
-    Inverse Kinematics for Baxter end effector 
+    Inverse Kinematics for Baxter end effector using moveit package 
 """
-
+import sys
 import rospy
 import baxter_interface
 from baxter_interface import CHECK_VERSION
+import moveit_commander
+from geometry_msgs.msg import Pose, PoseStamped, Point
+from moveit_commander.conversions import pose_to_list, list_to_pose
+from std_srvs.srv import Empty, EmptyResponse
 
-class ArmMover(object):
-
+class Mover(object):
     def __init__(self):
-        # Limbs 
-        self._left_arm = baxter_interface.limb.Limb("left")
-        self._right_arm = baxter_interface.limb.Limb("right")
-        # Joint Names
-        self._left_joint_names = self._left_arm.joint_names()
-        self._right_joint_names = self._right_arm.joint_names()
+        self.robot = moveit_commander.RobotCommander()
+        self.scene = moveit_commander.PlanningSceneInterface()
+        self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm", wait_for_servers=30)
+        rospy.Service('/go_to_pose', Empty, self.go_to_pose_callback)
         # Enable Robot 
         print("Getting robot state... ")
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
         self._init_state = self._rs.state().enabled
         print("Enabling robot... ")
         self._rs.enable()
-    
+        self.planning_frame = self.left_arm_group.get_planning_frame()
+        self.add_wall()
 
-    def clean_shutdown(self):
-        print("\nExiting...")
-        self._left_arm.move_to_neutral()
-        self._right_arm.move_to_neutral()
-        if not self._init_state:
-            print("Disabling robot...")
-            self._rs.disable()
+    def wait_for_state_update(self, item_name, item_attached=False,
+                              item_known=False, timeout=4):
+        """ Ensures collision updates are received by waiting until changes
+            are reflected in get_attached_objects() and
+            get_known_object_names() lists.
+
+            Taken from Interbotix MoveIt Tutorial's Python interface example.
+
+            Args:
+                item_name (string): name of item being added to planning scene
+                item_attached (bool): whether item is already in
+                                        get_attached_objects()
+                item_known (bool): whether item is already in
+                                        get_known_object_names()
+                timeout (int): time limit if item can't be added
+        """
+        start = rospy.get_time()
+        seconds = rospy.get_time()
+
+        while (seconds - start < timeout) and not rospy.is_shutdown():
+
+            attached_objects = self.__scene.get_attached_objects([item_name])
+            is_attached = len(attached_objects.keys()) > 0
+            is_known = item_name in self.__scene.get_known_object_names()
+
+            if (item_attached == is_attached) and (item_known == is_known):
+                return True
+
+            rospy.sleep(0.1)
+            seconds = rospy.get_time()
+
+        return False
+
+    def add_wall(self):
+        wall_pose = PoseStamped()
+        wall_pose.header.frame_id = self.planning_frame
+        wall_pose.pose.position.x = 1
+        self.scene.add_box('wall', wall_pose, size=(0.5, 0.5, 2))
+        while not self.wait_for_state_update('wall', item_known=True):
+            self.scene.add_box('wall', wall_pose, size=(0.5, 0.5, 2))
     
-    def go_to_neutral(self):
-        print("Going to neutral position...")
-        self._left_arm.move_to_neutral()
-        self._right_arm.move_to_neutral()
-        print("Done")
-    
-    def go_to_pose(self):
-        angles = [0]*len(self._left_joint_names)
-        positions = dict(zip(self._left_joint_names,angles))
-        print("Moving to joint positions...")
-        self._left_arm.move_to_joint_positions(positions)
-        print("Done")
+    def go_to_pose_callback(self, req):
+        """
+            Move to some position
+        """
+        left_current_pose = self.left_arm_group.get_current_pose(end_effector_link="left_gripper").pose
+        # print(left_current_pose)
+        left_target_pose = left_current_pose
+        left_target_pose.position.x = left_current_pose.position.x + 0.2
+        left_target_pose.position.z = left_current_pose.position.z + 0.2
+        print(left_target_pose)
+
+        # Set target
+        print("Setting Target...")
+        self.left_arm_group.set_pose_target(left_target_pose)
+
+        # Plan 
+        print("Planning...")
+        success, traj, planTime, errCode = self.left_arm_group.plan()
+
+        # Execute 
+        print("Executing...")
+
+        if not success:
+            print("Error, planning failed")
+        else:
+            # self.left_arm_group.go(wait=True)
+            self.left_arm_group.execute(traj)
+            self.left_arm_group.stop()
+        
+        # Clear pose targets 
+        self.left_arm_group.clear_pose_targets()
+
+        return EmptyResponse
 
 def main():
-    rospy.init_node("ArmMover")
-    arm_mover_node = ArmMover()
-    
-    
-    # Register clean shutdown
-    # rospy.on_shutdown(arm_mover_node.clean_shutdown)
-
-    arm_mover_node.go_to_pose()
-    arm_mover_node.go_to_neutral()
-
+    moveit_commander.roscpp_initialize(sys.argv)
+    rospy.init_node('moveit_mover')
+    m = Mover()
+    # m.go_to_pose()
     rospy.spin()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         main()
     except rospy.ROSInterruptException:
