@@ -1,0 +1,61 @@
+#! /usr/bin/env python3
+
+"""
+The motion planning node.
+PUBLISHERS:
+
+
+SUBSCRIBERS:
+
+
+"""
+
+import sys
+import copy
+import rospy
+import moveit_commander
+import geometry_msgs.msg
+
+class Motion(object):
+    def __init__(self):
+        #initializations:
+        joint_state_topic = ['joint_states:=/robot/joint_states'] #need to confirm need and validity of this line
+        moveit_commander.roscpp_initialize(joint_state_topic)
+        rospy.init_node('mover_AJ') #needs a proper name
+
+        #Instantiating a robot commander object. 
+        self.robot = moveit_commander.RobotCommander()
+        self.group = moveit_commander.MoveGroupCommander("both_arms")
+
+    def traj():
+        #Planning to Pose Goal:
+        left_current_pose = self.group.get_current_pose(end_effector_link='left_gripper').pose
+        right_current_pose = self.group.get_current_pose(end_effector_link='right_gripper').pose
+
+        left_target_pose = left_current_pose
+        left_target_pose.x = left_current_pose.x - 0.5 #Just trial values, the actual target data for the arm will come here
+
+        #Same for right arm if needed.
+
+        group.set_pose_target(left_target_pose, end_effector_link="left_gripper")
+
+        plan = group.plan()
+
+        if not plan.joint_trajectory.points:
+            print("Error, No Trajectory Found")
+        else:
+            group.go(wait=True)
+
+        
+        rospy.spin()
+        #Shutdown/sleep after completion:
+        #oveit_commander.roscpp_shutdown()
+        #moveit_commander.os._exit(0) #Need, validity and consequences to be verified
+
+        if __name__ == '__main__':
+            try:
+                traj()
+            except rospy.ROSInterruptException:
+                pass
+
+    
