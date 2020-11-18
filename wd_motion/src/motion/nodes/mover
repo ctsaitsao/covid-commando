@@ -3,10 +3,26 @@
 """
     Inverse Kinematics for Baxter end effector 
 """
+import sys
+import struct 
 
 import rospy
 import baxter_interface
 from baxter_interface import CHECK_VERSION
+from geometry_msgs.msg import (
+    PoseStamped,
+    Pose,
+    Point,
+    Quaternion,
+)
+from std_msgs.msg import (
+    Header,
+    Empty,
+)
+from baxter_core_msgs.srv import (
+    SolvePositionIK, 
+    SolvePositionIKRequest,
+)
 
 class ArmMover(object):
 
@@ -17,13 +33,65 @@ class ArmMover(object):
         # Joint Names
         self._left_joint_names = self._left_arm.joint_names()
         self._right_joint_names = self._right_arm.joint_names()
+        # IKService
+        ns = "ExternalTools/" + "left" + "/PositionKinematicsNode/IKService"
+        self._iksvc = rospy.ServiceProxy(ns, SolvePositionIK)
+        rospy.wait_for_service(ns, 5.0)
         # Enable Robot 
         print("Getting robot state... ")
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
         self._init_state = self._rs.state().enabled
         print("Enabling robot... ")
         self._rs.enable()
+        
+    def ik_request(self, pose):
+
+        hdr = Header(stamp=rospy.Time.now(), frame_id='base')
+
+        ikreq = SolvePositionIKRequest()
+
+        ikreq.pose_stamp.append(PoseStamped(header=hdr, pose=pose))
+
+        try:    
+            resp = self._iksvc(ikreq)
+        except (rospy.ServiceException, rospy.ROSException, e):
+            rospy.logerr("Service call failed: %s" % (e,))
+            return False
+        # Check if result valid, and type of seed ultimately used to get solution
+        # convert rospy's string representation of uint8[]'s to int's
+        resp_seeds = struct.unpack('<%dB' % len(resp.result_type), resp.result_type)
+        limb_joints = {}
+        if (resp_seeds[0] != resp.RESULT_INVALID):
+            seed_str = {
+                        ikreq.SEED_USER: 'User Provided Seed',
+                        ikreq.SEED_CURRENT: 'Current Joint Angles',
+                        ikreq.SEED_NS_MAP: 'Nullspace Setpoints',
+                       }.get(resp_seeds[0], 'None')
+            if self._verbose:
+                print("IK Solution SUCCESS - Valid Joint Solution Found from Seed Type: {0}".format(
+                         (seed_str)))
+            # Format solution into Limb API-compatible dictionary
+            limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
+            if self._verbose:
+                print("IK Joint Solution:\n{0}".format(limb_joints))
+                print("------------------")
+
+        else:
+
+            rospy.logerr("INVALID POSE - No Valid Joint Solution Found.")
+            return False
+        return limb_joints
     
+    def go_to_ik_pose(self):
+        pose = Pose(
+            position = Point(x=1,y=1,z=0),
+            orientation = Quaternion(x=0,y=0,z=0,w=1)
+        )
+        joint_angles = self.ik_request(pose)
+        if joint_angles:
+            self._left_arm.move_to_joint_positions()
+        else:
+            print("Did not move.")
 
     def clean_shutdown(self):
         print("\nExiting...")
@@ -41,9 +109,9 @@ class ArmMover(object):
     
     def go_to_pose(self):
         angles = [0]*len(self._left_joint_names)
-        positions = dict(zip(self._left_joint_names,angles))
-        print("Moving to joint positions...")
-        self._left_arm.move_to_joint_positions(positions)
+        joint_angles = dict(zip(self._left_joint_names,angles))
+        print("Moving to joint_angles...")
+        self._left_arm.move_to_joint_positions(joint_angles)
         print("Done")
 
 def main():
@@ -54,8 +122,14 @@ def main():
     # Register clean shutdown
     # rospy.on_shutdown(arm_mover_node.clean_shutdown)
 
-    arm_mover_node.go_to_pose()
+    
     arm_mover_node.go_to_neutral()
+
+    arm_mover_node.go_to_pose()
+
+    arm_mover_node.go_to_ik_pose()
+
+
 
     rospy.spin()
 

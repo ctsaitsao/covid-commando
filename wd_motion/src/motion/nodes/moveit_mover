@@ -17,10 +17,10 @@ class Mover(object):
         self.scene = moveit_commander.PlanningSceneInterface()
         self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm")
         # Enable Robot 
-        print("Getting robot state... ")
+        rospy.loginfo("Getting robot state... ")
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
         self._init_state = self._rs.state().enabled
-        print("Enabling robot... ")
+        rospy.loginfo("Enabling robot... ")
         self._rs.enable()
     
     def go_to_pose(self):
@@ -29,33 +29,38 @@ class Mover(object):
         """
         left_current_pose = self.left_arm_group.get_current_pose(end_effector_link="left_gripper").pose
         left_target_pose = left_current_pose
-        left_target_pose.position.x = left_current_pose.position.x - 0.1
-        left_target_pose.position.z = left_current_pose.position.z + 0.2
-
+        left_target_pose.position.x = left_current_pose.position.x + 0.1
+        left_target_pose.position.z = left_current_pose.position.z + 0.1
+        rospy.loginfo(left_target_pose)
 
         # Set target
-        print("Setting Target...")
-        self.left_arm_group.set_pose_target(left_target_pose)
+        rospy.loginfo("Setting Target...")
+        self.left_arm_group.set_pose_target(left_target_pose,end_effector_link="left_gripper")
 
         # Plan 
-        print("Planning...")
-        plan = self.left_arm_group.plan()
+        rospy.loginfo("Planning...")
+        success, traj, planTime, errCode = self.left_arm_group.plan()
 
         # Execute 
-        print("Executing...")
-        if not plan.success:
-            print("Error, planning failed")
+        rospy.loginfo("Executing...")
+        if not success:
+            rospy.loginfo("Error, planning failed")
         else:
             self.left_arm_group.go(wait=True)
         
         # Clear pose targets 
         self.left_arm_group.clear_pose_targets()
+    
+    def show_pose(self):
+        left_current_pose = self.left_arm_group.get_current_pose().pose
+        rospy.loginfo(left_current_pose)
 
 def main():
     moveit_commander.roscpp_initialize(sys.argv)
     rospy.init_node('moveit_mover')
     m = Mover()
-    m.go_to_pose()
+    # m.go_to_pose()
+    m.show_pose()
     rospy.spin()
 
 if __name__ == '__main__':
