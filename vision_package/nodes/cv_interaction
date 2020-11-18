@@ -20,8 +20,10 @@ class FaceDetection:
 
     # Load cascade configuration files 
     # (currently saved in same directory as the node, to be moved into config)
-    self.faceCascade = cv2.CascadeClassifier("face_cascade.xml")
-    self.eyeCascade  = cv2.CascadeClassifier("eye_cascade.xml")
+    # self.faceCascade = cv2.CascadeClassifier("face_cascade.xml")
+    self.faceCascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    # self.eyeCascade  = cv2.CascadeClassifier("eye_cascade.xml")
+    self.eyeCascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
 
     # Initialize CvBridge object, which allows conversion between ROS message
     # and OpenCV Image data type
@@ -30,7 +32,7 @@ class FaceDetection:
     # Initilize subscriber, reading a ROS Image message type
     # (the topic will be published by the Baxter or the rosbag capture)
     # NOTE: Head camera must be initilized first (Tom to create script for this)
-    self.image_subscriber = rospy.Subscriber("/cameras/head_camera/image",
+    self.image_subscriber = rospy.Subscriber("/camera/color/image_raw",
                                               Image,  
                                               self.callback ) 
 
