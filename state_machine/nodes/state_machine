@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+import rospy
+from std_msgs.msg import String
+from geometry_msgs.msg import Pose
+from enum import Enum, auto
+from state_machine.srv import SetState, SetStateResponse
+
+
+class State(Enum):
+    """ The state of the covid commando control loop.
+        These are different modes that the controller can be in.
+    """
+    SEARCH_FOR_FACE = auto()
+    MOVE_TO_FACE = auto()
+    TAKE_TEMPERATURE = auto()
+    CHECK_TEMPERATURE = auto()
+    DISPLAY_RESULT = auto()
+
+class StateMachine:
+    """ Decides what state robot is in. """
+    def __init__(self):
+        self.state_pub = rospy.Publisher('state', String, queue_size=10)
+        self.state = State.SEARCH_FOR_FACE
+        self.set_state = rospy.Service('set_state', SetState,
+                                       self.set_state_callback)
+        self.rate = rospy.Rate(100)
+
+    def set_state_callback(self, req):
+        allowable_states = ['search_for_face', 'move_to_face',
+                            'take_temperature', 'check_temperature',
+                            'display_result']
+
+        if req.state not in allowable_states:
+            raise ValueError(f"Requested state must be in {allowable_states}")  # is raising an error the best approach
+
+        self.state = req.state
+
+        return SetStateResponse()
+
+    def loop(self):
+        # TODO: add subscribers so the node knows when to switch>
+        self.state_pub.publish(self.state)
+
+def main():
+    """ The main() function. """
+    rospy.init_node('state_machine')
+    s = StateMachine()
+    s.loop()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
