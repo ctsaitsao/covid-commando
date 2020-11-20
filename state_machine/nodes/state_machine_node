@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+
+import os 
+from pathlib import Path
+import cv2
+import cv_bridge
+from enum import Enum, auto
+
+
+import rospy
+from std_msgs.msg import String
+from geometry_msgs.msg import Pose
+from state_machine.srv import SetState, SetStateResponse
+from sensor_msgs.msg import (
+    Image,
+)
+from std_srvs.srv import Empty,EmptyRequest,EmptyResponse
+
+class StateMachine:
+    """ Decides what state robot is in. """
+    def __init__(self):
+        # State publisher 
+        self.state_pub = rospy.Publisher('state', String, queue_size=10)
+        self.state = "search_for_face"
+        self.prev_state = ""
+        self.set_state = rospy.Service('set_state', SetState,
+                                       self.set_state_callback)
+        self.rate = 100
+        # Display publisher 
+        self.display_pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
+        # Display image on init
+        self.images_dir = str(Path(os.path.realpath(__file__)).parents[1])+'/images/'
+        self.update_screen()
+        # Timer callback 
+        self.timer = rospy.Timer(rospy.Duration(1/self.rate), self.timer_callback)
+
+        # Service proxies 
+
+
+    def set_state_callback(self, req):
+        allowable_states = ['search_for_face', 'move_to_face',
+                            'take_temperature', 'check_temperature',
+                            'display_result']
+
+        if req.state not in allowable_states:
+            raise ValueError(f"Requested state must be in {allowable_states}")  # is raising an error the best approach
+
+        self.state = req.state
+
+        return SetStateResponse()
+    
+    def update_screen(self):
+        path = self.images_dir + self.state + '.png'
+        img = cv2.imread(path)
+        msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding="bgr8")
+        self.display_pub.publish(msg)
+        rospy.sleep(1)
+
+    def timer_callback(self,event):
+        """
+            Timer callback to publish state
+        """
+        self.state_pub.publish(self.state)
+        if self.state != self.prev_state:
+            # Update Baxter screen
+            
+            if self.state == "search_for_state":
+                self.update_screen()
+                pass 
+            elif self.state == "move_to_face":
+                self.update_screen()
+                pass
+            elif self.state == "take_temperature":
+                self.update_screen()
+                pass
+            elif self.state == "check_temperature":
+                self.update_screen()
+                pass
+            elif self.state == "display_result":
+                # Update screen as either high or low temp
+                pass 
+        else:
+            pass 
+        self.prev_state = self.state
+
+def main():
+    """ The main() function. """
+    rospy.init_node('state_machine')
+    s = StateMachine()
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
