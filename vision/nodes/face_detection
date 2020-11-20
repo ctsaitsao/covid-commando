@@ -4,9 +4,11 @@ import sys
 import rospy
 import cv2
 import tf2_ros
+import struct
 
 from std_msgs.msg import String
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2
+from sensor_msgs import point_cloud2
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Pose, Point, TransformStamped
 from image_geometry import PinholeCameraModel
@@ -30,11 +32,11 @@ class FaceDetection:
         self.image_sub = rospy.Subscriber('/camera/color/image_raw',
                                           Image,
                                           self.image_callback)
-        self.depth_sub = rospy.Subscriber('/camera/depth/image_rect_raw',
+        self.depth_sub = rospy.Subscriber('/camera/aligned_depth_to_color/image_raw',
                                           Image,
                                           self.depth_callback)
         self.state_sub = rospy.Subscriber('state', String, self.state_callback)
-        self.camera_info_sub = rospy.Subscriber('/camera/color/camera_info',
+        self.camera_info_sub = rospy.Subscriber('/camera/color/camera_info',  # same as /camera/aligned_depth_to_color/image_raw
                                                 CameraInfo,
                                                 self.camera_info_callback)
         self.pose_pub = rospy.Publisher('face_pose', Pose, queue_size=10)
@@ -47,6 +49,10 @@ class FaceDetection:
         self.forehead_x = None  # x pixel location of forehead
         self.forehead_y = None  # y pixel location of forehead
         self.forehead_depth = None  # depth of location of forehead
+
+        self.face_pose = None
+
+        self.pointcloud = None
 
         # Initialize variables needed for face detection loop
         self.dx = []
@@ -116,6 +122,36 @@ class FaceDetection:
                 self.forehead_x = int(round(x + w/2))
                 self.forehead_y = int(round(y + h/3))
 
+                if self.forehead_depth:
+
+                    p = PinholeCameraModel()
+                    p.fromCameraInfo(self.camera_info)
+
+                    i, j, k = p.projectPixelTo3dRay((self.forehead_x,
+                                                    self.forehead_y))
+
+                    face_pose = Pose(position=Point(x=self.forehead_depth * k,
+                                                    y=self.forehead_depth * -i,
+                                                    z=self.forehead_depth * -j))
+
+                    print(face_pose)
+
+                    br = tf2_ros.TransformBroadcaster()
+                    t = TransformStamped()
+
+                    t.header.stamp = rospy.Time.now()
+                    t.header.frame_id = "camera_aligned_depth_to_color_frame"
+                    t.child_frame_id = "face"
+                    t.transform.translation.x = face_pose.position.x
+                    t.transform.translation.y = face_pose.position.y
+                    t.transform.translation.z = face_pose.position.z
+                    t.transform.rotation.x = 0
+                    t.transform.rotation.y = 0
+                    t.transform.rotation.z = 0
+                    t.transform.rotation.w = 1
+
+                    br.sendTransform(t)
+
             else:
                 # cv2.rectangle(self.incomingFrame, (x, y), (x+w, y+h), (255, 0, 0),
                 #             2)
@@ -126,7 +162,7 @@ class FaceDetection:
             self.lastX = x
             self.lastY = y
 
-        # # Display the image on the screen
+        # # # Display the image on the screen
         # cv2.imshow("Image window", self.incomingFrame)
         # cv2.waitKey(1)
 
@@ -143,66 +179,20 @@ class FaceDetection:
 
         if self.forehead_x and self.forehead_y:
 
-            self.forehead_depth = self.incomingFrame[self.forehead_x,
-                                                     self.forehead_y] / 1000
-
-        else:
-            self.forehead_depth = None
+            self.forehead_depth = self.incomingFrame[self.forehead_y,
+                                                     self.forehead_x] / 1000  # TODO
 
     def camera_info_callback(self, data):
 
         self.camera_info = data
 
-    def loop(self):
-
-        while not rospy.is_shutdown():
-
-            if self.forehead_x and self.forehead_y and self.forehead_depth:
-
-                p = PinholeCameraModel()
-                p.fromCameraInfo(self.camera_info)
-
-                i, j, k = p.projectPixelTo3dRay((self.forehead_x,
-                                                self.forehead_y))
-
-                face_pose = Pose(position=Point(x=self.forehead_depth * k,
-                                                y=self.forehead_depth * i,
-                                                z=self.forehead_depth * -j))
-
-                print(face_pose)
-
-                br = tf2_ros.TransformBroadcaster()
-                t = TransformStamped()
-
-                t.header.stamp = rospy.Time.now()
-                t.header.frame_id = "camera_link"
-                t.child_frame_id = "face"
-                t.transform.translation.x = face_pose.position.x
-                t.transform.translation.y = face_pose.position.y
-                t.transform.translation.z = face_pose.position.z
-                t.transform.rotation.x = 0
-                t.transform.rotation.y = 0
-                t.transform.rotation.z = 0
-                t.transform.rotation.w = 1
-
-                br.sendTransform(t)
-
-                # if self.state == "MOVE_TO_FACE":
-
-                #     face_pose = Pose()
-                #     face_pose.x =   # TODO
-
-                #     self.pose_pub.publish(face_pose)
-
-        self.rate.sleep()
-
 
 def main(args):
-    rospy.init_node('face_detection', anonymous=True)
+    rospy.init_node('face_detection')
     find_faces = FaceDetection()
     try:
-        find_faces.loop()
-        # rospy.spin()
+        # find_faces.loop()
+        rospy.spin()
     except KeyboardInterrupt:
         print("Shutting down")
     cv2.destroyAllWindows()
