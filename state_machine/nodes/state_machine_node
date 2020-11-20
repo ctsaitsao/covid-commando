@@ -31,6 +31,10 @@ class StateMachine:
         # Display image on init
         self.images_dir = str(Path(os.path.realpath(__file__)).parents[1])+'/images/'
         self.update_screen()
+        # Head camera subscriber
+        self.head_camera_subscriber = rospy.Subscriber('/cameras/head_camera/image',Image,
+                                                        self.head_camera_callback)
+        self.stream_head_camera = False
         # Timer callback 
         self.timer = rospy.Timer(rospy.Duration(1/self.rate), self.timer_callback)
 
@@ -55,6 +59,10 @@ class StateMachine:
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding="bgr8")
         self.display_pub.publish(msg)
         rospy.sleep(1)
+    
+    def head_camera_callback(self,msg):
+        if self.stream_head_camera:
+            self.display_pub.publish(msg)
 
     def timer_callback(self,event):
         """
