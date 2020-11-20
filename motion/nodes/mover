@@ -197,7 +197,7 @@ class Mover(object):
         
         self.right_arm_group.execute(traj)
         self.right_arm_group.stop()
-        self.right_arm_group.clear_pose_target)()
+        self.right_arm_group.clear_pose_target()
 
         return StepResponse(err_code=err_code)
 
