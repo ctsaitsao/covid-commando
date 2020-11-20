@@ -9,7 +9,7 @@
     <rosparam command="load" file="$(find motion)/config/coordinates.yaml" />
 
     <!-- Start Moveit node -->
-    <node name="moveit_mover" pkg="motion" type="moveit_mover" output="screen">
+    <node name="mover" pkg="motion" type="mover" output="screen">
         <remap from="/joint_states" to="/robot/joint_states" />
     </node>
 

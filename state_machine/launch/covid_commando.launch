@@ -1,0 +1,8 @@
+<launch>
+    <!-- State machine node-->
+    <node name="state_machine" pkg="state_machine" type="state_machine_node" output="screen"/>
+    <!-- Motion node  -->
+    <include file = "$(find motion)/launch/arm.launch"/>
+    
+
+</launch>
