@@ -1,0 +1,16 @@
+<launch>
+    <include file="$(find baxter_moveit_config)/launch/baxter_grippers.launch"/>
+
+    <!-- Start Joint Trajectory Server -->
+    <node name="joint_trajectory_action_server" pkg="baxter_interface" 
+    type="joint_trajectory_action_server.py" output="screen" />
+
+    <!-- To load the coordinate parameters into the ros mover node -->
+    <rosparam command="load" file="$(find motion)/config/coordinates.yaml" />
+
+    <!-- Start Moveit node -->
+    <node name="mover" pkg="motion" type="mover" output="screen">
+        <remap from="/joint_states" to="/robot/joint_states" />
+    </node>
+
+</launch>

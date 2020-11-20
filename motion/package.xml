@@ -51,6 +51,10 @@
   <buildtool_depend>catkin</buildtool_depend>
   <depend>rospy</depend>
   <depend>baxter_interface</depend>
+  <depend>geometry_msgs</depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <depend>moveit_commander</depend>
   
 
   <!-- The export tag contains other, unspecified, tags -->
