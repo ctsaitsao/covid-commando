@@ -29,14 +29,9 @@ class Mover(object):
         self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm", wait_for_servers=30)
         self.right_arm_group = moveit_commander.MoveGroupCommander("right_arm", wait_for_servers=30)
         
-        # Limbs 
-        self.right_arm_limb = baxter_interface.limb.Limb("right")
-
-        # Reset Service
-        rospy.Service('/reset', Empty, self.reset_callback)
-        rospy.wait_for_service('/reset')
-        self.reset = rospy.ServiceProxy('/reset', Empty)
-        # GetPose service
+        # Reset Service:
+        rospy.Service('/reset', Empty,self.reset_callback)
+        # GetPose service:
         rospy.Service('/get_pose', GetPose, self.get_pose_callback)
         # GoToPose service
         rospy.Service('/go_to_pose', GoToPose, self.go_to_pose_callback)
