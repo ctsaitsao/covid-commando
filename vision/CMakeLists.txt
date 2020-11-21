@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(vision_package)
+project(vision)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -9,6 +9,7 @@ project(vision_package)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
+  image_geometry
   rospy
   sensor_msgs
   std_msgs
@@ -106,7 +107,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES arm_move
-  CATKIN_DEPENDS cv_bridge rospy sensor_msgs std_msgs
+  CATKIN_DEPENDS cv_bridge image_geometry rospy sensor_msgs std_msgs
 #  DEPENDS system_lib
 )
 
@@ -161,7 +162,7 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  nodes/cv_interaction
+  nodes/face_detection
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

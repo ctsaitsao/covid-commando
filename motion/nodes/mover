@@ -11,6 +11,8 @@ import moveit_commander
 from geometry_msgs.msg import Pose, PoseStamped, Point
 from moveit_commander.conversions import pose_to_list, list_to_pose
 from std_srvs.srv import Empty, EmptyResponse
+from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
 class Mover(object):
     def __init__(self):
@@ -21,16 +23,14 @@ class Mover(object):
         self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm", wait_for_servers=30)
         self.right_arm_group = moveit_commander.MoveGroupCommander("right_arm", wait_for_servers=30)
         
-        #Go to Pose Service (For trial, can delete later)
-        rospy.Service('/go_to_pose', Empty, self.go_to_pose_callback)
         #Reset Service:
-        rospy.Service('/Reset', Empty,self.reset_callback)     
-        #Read Position service:
-        rospy.Service('/read_pose', Empty, self.read_pose_callback)
-        #Step service
-        rospy.Service('/Step', Step, self.step_callback)
-        rospy.wait_for_service('step')
-        self.step_service = rospy.ServiceProxy('step', Step)
+        rospy.Service('/reset', Empty,self.reset_callback)
+        #GetPose service:
+        rospy.Service('/get_pose', GetPose, self.get_pose_callback)
+        #GoToPose service
+        rospy.Service('/go_to_pose', GoToPose, self.go_to_pose_callback)
+        rospy.wait_for_service('/go_to_pose')
+        self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
 
 
         # Enable Robot 
@@ -39,8 +39,12 @@ class Mover(object):
         self._init_state = self._rs.state().enabled
         print("Enabling robot... ")
         self._rs.enable()
-        self.planning_frame_left = self.left_arm_group.get_planning_frame()
+        self.planning_frame_left = self.left_arm_group.get_planning_frame()  # Planning frame: world
         self.planning_frame_right = self.right_arm_group.get_planning_frame()
+        # self.planning_frame_left = 'head_camera'
+        # self.planning_frame_right = 'head_camera'
+        
+        #adding multiple walls to represent safety barrier for people
         self.add_wall()
 
     def wait_for_state_update(self, item_name, item_attached=False,
@@ -77,55 +81,56 @@ class Mover(object):
         return False
 
     def add_wall(self):
-        wall_pose = PoseStamped()
-        wall_pose.header.frame_id = self.planning_frame_right
-        wall_pose.pose.position.x = 2
-        self.scene.add_box('wall', wall_pose, size=(0.1, 0.5, 2))
-        while not self.wait_for_state_update('wall', item_known=True):
-            self.scene.add_box('wall', wall_pose, size=(0.1, 0.5, 2))
-    
-    def go_to_pose_callback(self, req):
-        """
-            Move to some position
-        """
-        left_current_pose = self.left_arm_group.get_current_pose(end_effector_link="left_gripper").pose
-        # print(left_current_pose)
-        left_target_pose = left_current_pose
-        left_target_pose.position.x = left_current_pose.position.x + 0.2
-        left_target_pose.position.z = left_current_pose.position.z + 0.2
-        print(left_target_pose)
-        
+        wall_1_pose = PoseStamped()
+        wall_1_pose.header.frame_id = self.planning_frame_right
+        wall_1_pose.pose.position.x = 1
+        self.scene.add_box('wall1', wall_1_pose, size=(0.1, 0.5, 2))
+        while not self.wait_for_state_update('wall1', item_known=True):
+            self.scene.add_box('wall1', wall_1_pose, size=(0.1, 0.5, 2))
 
-        # Set target
-        print("Setting Target...")
-        self.left_arm_group.set_pose_target(left_target_pose)
+        wall_2_pose = PoseStamped()
+        wall_2_pose.header.frame_id = self.planning_frame_right
+        wall_2_pose.pose.position.x = 0.8
+        wall_2_pose.pose.position.y = 0.8
+        ###
+        angle2 = quaternion_from_euler(0,0,0.524)
+        #wall_2_pose.pose.orientation.x = angle2[0]
+        #wall_2_pose.pose.orientation.y = angle2[1]
+        wall_2_pose.pose.orientation.z = angle2[2]
+        wall_2_pose.pose.orientation.w = angle2[3]
+        self.scene.add_box('wall2', wall_2_pose, size=(0.1, 0.5, 2))
+        while not self.wait_for_state_update('wall2', item_known=True):
+            self.scene.add_box('wall2', wall_2_pose, size=(0.1, 0.5, 2))
 
-        # Plan 
-        print("Planning...")
-        success, traj, planTime, errCode = self.left_arm_group.plan()
+        wall_3_pose = PoseStamped()
+        wall_3_pose.header.frame_id = self.planning_frame_right
+        wall_3_pose.pose.position.x = 0.8
+        wall_3_pose.pose.position.y = -0.8
 
-        # Execute 
-        print("Executing...")
+        angle3 = quaternion_from_euler(0,0,-0.524)
+        #wall_3_pose.pose.orientation.x = angle3[0]
+        #wall_3_pose.pose.orientation.y = angle3[1]
+        wall_3_pose.pose.orientation.z = angle3[2]
+        wall_3_pose.pose.orientation.w = angle3[3]
+        self.scene.add_box('wall3', wall_3_pose, size=(0.1, 0.5, 2))
+        while not self.wait_for_state_update('wall3', item_known=True):
+            self.scene.add_box('wall3', wall_3_pose, size=(0.1, 0.5, 2))
 
-        if not success:
-            print("Error, planning failed")
-        else:
-            # self.left_arm_group.go(wait=True)
-            self.left_arm_group.execute(traj)
-            self.left_arm_group.stop()
-        
-        # Clear pose targets 
-        self.left_arm_group.clear_pose_targets()
-
-        return EmptyResponse()
-
-    def read_pose_callback(self, req):
+    def get_pose_callback(self, req):
         """
         Reads the current pose of the right arm gripper
         """
         right_current_pose = self.right_arm_group.get_current_pose(end_effector_link="right_gripper").pose
-        print(right_current_pose)
-        return EmptyResponse()
+
+        angles = euler_from_quaternion([right_current_pose.orientation.x,
+                                        right_current_pose.orientation.y,
+                                        right_current_pose.orientation.z,
+                                        right_current_pose.orientation.w])
+
+        return GetPoseResponse(x=right_current_pose.position.x,
+                               y=right_current_pose.position.y,
+                               z=right_current_pose.position.z,
+                               r=angles[0], p=angles[1], yaw=angles[2])
 
     def reset_callback(self, req):
         """
@@ -179,27 +184,39 @@ class Mover(object):
 
         return EmptyResponse()
     
-    def step_callback(self, req):
+    def go_to_pose_callback(self, req):
         """
-        Callback funtion for the step service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
+        Callback funtion for the go_to_pose service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
         Args:
-        req (arm_move/StepRequest):
+        req (arm_move/GoToPoseRequest):
         
         Returns:
-        - (arm_move/StepResponse): MoveItErrorCode to indicate success or failure
+        - (arm_move/GoToPoseResponse): MoveItErrorCode to indicate success or failure
         """
-        pose_goal = req.pose_goal
-        self.right_arm_group.set_pose_target(pose_goal)
+        pose_goal = PoseStamped()
+        pose_goal.header.frame_id = req.frame
+        pose_goal.pose.position.x = req.x
+        pose_goal.pose.position.y = req.y
+        pose_goal.pose.position.z = req.z
+
+        quat = quaternion_from_euler(req.r, req.p, req.yaw)
+
+        pose_goal.pose.orientation.x = quat[0]
+        pose_goal.pose.orientation.y = quat[1]
+        pose_goal.pose.orientation.z = quat[2]
+        pose_goal.pose.orientation.w = quat[3]
+
+        self.right_arm_group.set_pose_target(pose_goal.pose)
         success, traj, _, errCode = self.right_arm_group.plan()
 
-        if not success:
-            return StepResponse(err_code=err_code)
+        # if not success:
+        #     return GoToPoseResponse(err_code=err_code)
         
         self.right_arm_group.execute(traj)
         self.right_arm_group.stop()
-        self.right_arm_group.clear_pose_target()
+        self.right_arm_group.clear_pose_targets()
 
-        return StepResponse(err_code=err_code)
+        return GoToPoseResponse()
 
 
 

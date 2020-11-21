@@ -1,5 +1,10 @@
 <launch>
+
+    <arg name="launch_gazebo" default="false"/>
+
     <include file="$(find baxter_moveit_config)/launch/baxter_grippers.launch"/>
+
+    <include file="$(find baxter_gazebo)/launch/baxter_world.launch" if="$(arg launch_gazebo)"/>
 
     <!-- Start Joint Trajectory Server -->
     <node name="joint_trajectory_action_server" pkg="baxter_interface" 

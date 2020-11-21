@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>vision_package</name>
+  <name>vision</name>
   <version>0.0.0</version>
   <description>vision_package</description>
 
@@ -8,6 +8,7 @@
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
   <maintainer email="ttrzpit@u.northwestern.edu">Thomas Trzpit</maintainer>
+  <maintainer email="christophertsai2020@u.northwestern.edu">Christopher Tsai</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
@@ -57,6 +58,7 @@
   <exec_depend>std_msgs</exec_depend>
   <depend>cv_bridge</depend>
   <depend>sensor_msgs</depend>
+  <depend>image_geometry</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
