@@ -10,7 +10,7 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2
 from sensor_msgs import point_cloud2
 from cv_bridge import CvBridge, CvBridgeError
-from geometry_msgs.msg import Pose, Point, TransformStamped
+from geometry_msgs.msg import Pose, Point, TransformStamped, Vector3, Quaternion, Transform
 from image_geometry import PinholeCameraModel
 
 class FaceDetection:
@@ -52,7 +52,8 @@ class FaceDetection:
 
         self.face_pose = None
 
-        self.pointcloud = None
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster()
+        self.tf_listener = tf2_ros.TransformListener(tf2_ros.Buffer())
 
         # Initialize variables needed for face detection loop
         self.dx = []
@@ -130,27 +131,96 @@ class FaceDetection:
                     i, j, k = p.projectPixelTo3dRay((self.forehead_x,
                                                     self.forehead_y))
 
-                    face_pose = Pose(position=Point(x=self.forehead_depth * k,
-                                                    y=self.forehead_depth * -i,
-                                                    z=self.forehead_depth * -j))
+                    Tbr = Transform(
+                            translation=Vector3(            # TODO: get this from config file later
+                                # x=-0.1472865747272882,
+                                # y=0.1497960282015105,
+                                # z=-0.1870116420679273),
+                                x=0.1,
+                                y=0, #0.03
+                                z=0.87), #0.15
+                            rotation=Quaternion(
+                                # x=0.08820884012981547,
+                                # y=0.047096118746598616,
+                                # z=0.994935424732234,
+                                # w=0.010230187429768183
+                                x=0,
+                                y=0,
+                                z=0,
+                                w=1
+                            ))
+                    Tbr_stamped = TransformStamped()
+                    Tbr_stamped.header.stamp = rospy.Time.now()
+                    Tbr_stamped.header.frame_id = "world"
+                    Tbr_stamped.child_frame_id = "camera_aligned_depth_to_color_frame"
+                    Tbr_stamped.transform = Tbr
 
-                    print(face_pose)
+                    Trf = Transform(
+                            translation=Vector3(
+                                x=self.forehead_depth * k,
+                                y=self.forehead_depth * -i,
+                                z=self.forehead_depth * -j),
+                                # x=self.forehead_depth * i,
+                                # y=self.forehead_depth * j,
+                                # z=self.forehead_depth * k),
+                            rotation=Quaternion(
+                                x=0,
+                                y=0,
+                                z=0,
+                                w=1
+                            ))
+                    Trf_stamped = TransformStamped()
+                    Trf_stamped.header.stamp = rospy.Time.now()
+                    Trf_stamped.header.frame_id = "camera_aligned_depth_to_color_frame"
+                    Trf_stamped.child_frame_id = "face"
+                    Trf_stamped.transform = Trf
 
-                    br = tf2_ros.TransformBroadcaster()
-                    t = TransformStamped()
+                    self.tf_broadcaster.sendTransform(Tbr_stamped)
+                    self.tf_broadcaster.sendTransform(Trf_stamped)
 
-                    t.header.stamp = rospy.Time.now()
-                    t.header.frame_id = "camera_aligned_depth_to_color_frame"
-                    t.child_frame_id = "face"
-                    t.transform.translation.x = face_pose.position.x
-                    t.transform.translation.y = face_pose.position.y
-                    t.transform.translation.z = face_pose.position.z
-                    t.transform.rotation.x = 0
-                    t.transform.rotation.y = 0
-                    t.transform.rotation.z = 0
-                    t.transform.rotation.w = 1
+                    print(Trf_stamped)
 
-                    br.sendTransform(t)
+                    # Twf = self.tf_listener.lookupTransform('/face', '/world', rospy.Time(0))
+
+                    # print(Twf)
+
+                    # Tbf = Tbr * Trf
+
+                    # Twb = self.tf_listener.lookupTransform('/head_camera', '/world', rospy.Time(0))
+
+                    # Twf = Twb * Tbf
+
+                    # print(Twf)
+
+                    # Twf_stamped = TransformStamped()
+
+                    # Twf_stamped.header.stamp = rospy.Time.now()
+                    # Twf_stamped.header.frame_id = "world"
+                    # Twf_stamped.child_frame_id = "face"
+                    # Twf_stamped.transform = Twf
+
+                    # self.tf_broadcaster.sendTransform(Twf_stamped)
+
+                    # face_pose = Pose(position=Point(x=self.forehead_depth * k,
+                    #                                 y=self.forehead_depth * -i,
+                    #                                 z=self.forehead_depth * -j))
+
+                    # # print(face_pose)
+
+                    # face_transform = TransformStamped()
+
+                    # face_transform.header.stamp = rospy.Time.now()
+                    # face_transform.header.frame_id = "camera_aligned_depth_to_color_frame"
+                    # face_transform.child_frame_id = "face"
+                    # face_transform.transform.translation.x = face_pose.position.x
+                    # face_transform.transform.translation.y = face_pose.position.y
+                    # face_transform.transform.translation.z = face_pose.position.z
+                    # face_transform.transform.rotation.x = 0
+                    # face_transform.transform.rotation.y = 0
+                    # face_transform.transform.rotation.z = 0
+                    # face_transform.transform.rotation.w = 1
+
+                    # self.tf_broadcaster.sendTransform(t)
 
             else:
                 # cv2.rectangle(self.incomingFrame, (x, y), (x+w, y+h), (255, 0, 0),

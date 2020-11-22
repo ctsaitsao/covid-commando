@@ -1,0 +1,150 @@
+
+#!/usr/bin/env python
+
+import sys
+import rospy
+import cv2
+import numpy as np
+
+from std_msgs.msg import String
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
+from geometry_msgs.msg import Pose
+
+import baxter_interface.digital_io as DIO
+
+
+
+"""
+Do CV on the small camera to detect the sensor green vs red, average over an n x n window centered around xy
+"""
+
+class ReadTemperature:
+
+    def __init__(self):
+
+        # CENTROIDS NEED TO BE UPDATED FOR BAXTER HAND CAMERA
+        # Image max 320x200
+        self.centroidX  = 160
+        self.centroidY  = 100 
+        self.windowSize = 25
+        self.red_threshold = 200
+        self.green_threshold = 200
+
+        # Initialize CvBridge object, which allows conversion between ROS message
+        # and OpenCV Image data type
+        self.bridge = CvBridge()
+
+        # Initialize subscriber, reading a ROS Image message type
+        # (the topic will be published by the RealSense or the rosbag capture)
+        self.image_sub = rospy.Subscriber('/cameras/right_hand_camera/image',
+                                                 Image,
+                                                 self.image_callback)
+        self.state_sub = rospy.Subscriber('state', String, self.state_callback)
+        self.temperature_pub = rospy.Publisher('temperature_reading', String, queue_size=10)
+
+        self.state = None
+
+        # SERVICE FOR DEBUGGING, SEND A FAKE IO LIGHT TO THE ARM
+        self.blink = rospy.Service("blink_arm_light", Trigger, self.blinkCallback )
+
+
+    def blinkCallback(self, data):
+        """
+        Blinks a Digital Output on then off.
+        Taken from baxter_examples/scripts/digital_io_blink.py
+        """
+
+        self.io_component = "right_outer_light"
+
+        rospy.loginfo("Blinking Digital Output: %s", self.io_component)
+        self.light = DIO.DigitalIO(self.io_component)
+
+        print("Initial state: ", self.light.state)
+
+        # turn on light
+        self.light.set_output(True)
+        rospy.sleep(2)
+        print("New state: ", self.light.state)
+
+        # reset output
+        self.light.set_output(False)
+        rospy.sleep(1)
+        print("Final state:", self.light.state)
+        
+        self.success = True
+        self.message = "Sending blink command"
+            
+        return self.success, self.message
+
+
+ 
+
+    def state_callback(self, data):
+        """ Used as the 'state' callback.
+
+            Args:
+               data (std_msgs/String): the current state
+        """
+        self.state = data.data
+
+    def image_callback(self, data):
+        """
+        Callback for image subscriber
+        """
+        
+
+        
+        # Attempt to pull frame from ROS message
+        try:
+            # Pull image as an 8-bit RGB image
+            self.incomingFrame = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        except CvBridgeError as e:
+            # Print error if incoming frame cannot be pulled
+            print(e)
+
+        # Define the window used for capturing the thermometer window
+        self.captureWindow =  self.incomingFrame[self.centroidY-self.windowSize:self.centroidY+self.windowSize, 
+                                                 self.centroidX-self.windowSize:self.centroidX+self.windowSize]
+
+        # Draw a rectange around the window (for visualization / debugging)
+        cv2.rectangle(self.incomingFrame, (self.centroidX-self.windowSize, self.centroidY-self.windowSize), '
+                                          (self.centroidX+self.windowSize, self.centroidY+self.windowSize), (255, 255, 255), 1)                                                 
+        
+        self.channels = cv2.mean(self.captureWindow)
+        self.rgb_fix = np.array([(self.channels[2], self.channels[1], self.channels[0])])
+
+        # self.color = self.incomingFrame[self.centroidX,self.centroidY]
+        print ( "R: " , int(self.channels[2]) , "\t G: " , int(self.channels[1]) , "\t B: " , int(self.channels[0]) ) 
+
+        # Check channel thresholds
+        if self.channels[1] > green _threshold:
+            print ( "GREEN DETECTED, TEMPERATURE OK!" )
+            self.temperature_pub.publish("GREEN")
+
+
+        elif self.channels[2] > red_threshold:
+            print ( "RED DETECTED, YOU GONNA DIE!" )
+            self.temperature_pub.publish("RED")
+
+        else:
+            print ("No reading found")
+            self.temperature_pub.publish("CLEAR")
+
+        # Display the image on the screen
+        cv2.imshow("Image window", self.incomingFrame)
+        cv2.waitKey(1)
+
+
+def main(args):
+    read_temperature = ReadTemperature()
+    rospy.init_node('read_temperature', anonymous=True)
+    try:
+        rospy.spin()
+    except KeyboardInterrupt:
+        print("Shutting down")
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main(sys.argv)
