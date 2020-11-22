@@ -53,7 +53,6 @@ class Mover(object):
         # Make right arm to go neutral position
         print(f"{cyan}Going to neutral pose...") 
         self.right_arm_limb.move_to_neutral()
-
         # Set planning time to 10s
         self.right_arm_group.set_planning_time(10)
 
@@ -177,15 +176,16 @@ class Mover(object):
 
         # Plan target pose
         plan, fraction = planning(target_pose)
-        print(f"{cyan}\nTrajectory Planned:{fraction}\n")
+        print(f"{cyan}\nTrajectory Planned:{fraction}")
+        print(f"{cyan}First attempt to target pose\n")
         self.right_arm_group.execute(plan)
         self.right_arm_group.stop()
-        
+
         while fraction < 0.95:
             # Get random pose 
             dist = 1e5
             tries = 0
-            while dist>1:
+            while dist>0.5:
                 rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
                 dist = rand_to_target_dist(rand_pose,target_pose)
                 print(f"{cyan}\nRand-Target Dist: {dist}, Tries: {tries}")
@@ -203,35 +203,79 @@ class Mover(object):
             self.right_arm_group.stop()
                  
 
+    def saved_pose_mover(self, move_group, target_pose):
+        
+        saved_poses = rospy.get_param("saved_poses")
+        def planning(pose):
+            plan,fraction = move_group.compute_cartesian_path(
+                            [pose],
+                            0.01,
+                            0.0
+            )
+            return plan, fraction
+        def point_from_pose(pose):
+            point = np.array([pose.position.x,
+                            pose.position.y,
+                            pose.position.z])
+            return point 
+        def point_from_saved_pose(saved_pose):
+            print(f"{cyan}point_from_saved_pose")
+            saved_pose = saved_pose[list(saved_pose.keys())[0]]
+            point = np.array([saved_pose["p.x"],
+                            saved_pose["p.y"],
+                            saved_pose["p.z"]])
+            return point
+        def closest_saved_pose(target_pose):
+            min_dist = 1e5
+            closest = None
+            for i,saved_pose in enumerate(saved_poses):
+                saved_point = point_from_saved_pose(saved_pose)
+                print(f"{cyan}saved_point")
+                target_point = point_from_pose(target_pose)
+                print(f"{cyan}target_point")
+                dist = np.linalg.norm(target_point - saved_point)
+                if min_dist>dist:
+                    min_dist = dist
+                    closest = saved_pose
+            closest = closest[list(closest.keys())[0]]
+            print(f"{cyan}{closest}")
+            closest_pose = Pose()
+            closest_pose.position.x = closest["p.x"]
+            closest_pose.position.y = closest["p.y"]
+            closest_pose.position.z = closest["p.z"]
+            closest_pose.orientation.x = closest["o.x"]
+            closest_pose.orientation.y = closest["o.y"]
+            closest_pose.orientation.z = closest["o.z"]
+            return closest_pose         
+        
+        # Cartesian to saved pose
+        print(f"{cyan}Going to closest saved pose")
+        closest_pose = closest_saved_pose(target_pose)
+        print(f"{cyan}closest_found")
+        self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
+        success, traj, _, errCode = self.right_arm_group.plan()
+        self.right_arm_group.execute(traj)
+        self.right_arm_group.stop()
+        self.right_arm_group.clear_pose_targets()
+        
+        # plan, fraction = planning(closest_pose)
+        # self.right_arm_group.execute(plan)
+        # self.right_arm_group.stop()
 
-        # # Execute if 95% of trajectory is computed
-        # if fraction > 0.95:
-        #     self.right_arm_group.execute(plan)
-        #     self.right_arm_group.stop()
+        # Go to target pose 
+        print(f"{cyan}Going to target pose")
+        self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
+        success, traj, _, errCode = self.right_arm_group.plan()
+        self.right_arm_group.execute(traj)
+        self.right_arm_group.stop()
+        self.right_arm_group.clear_pose_targets()
+
+        # plan, fraction = planning(target_pose)
+        # self.right_arm_group.execute(plan)
+        # self.right_arm_group.stop()
         
-        # else:
-        #     # Get random pose 
-        #     dist = 1e5
-        #     tries = 0
-        #     while dist>1:
-        #         rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
-        #         dist = rand_to_target_dist(rand_pose,target_pose)
-        #         print(f"{cyan}\nRand-Target Dist: {dist}, Tries: {tries}")
-        #         tries += 1
-                
-        #     print(f"{cyan}\nRand-Target Dist: {dist}")
-        #     # Go to random pose
-        #     plan, fraction = planning(rand_pose)
-        #     print(f"{cyan}Going to random pose, traj fraction: {fraction}\n")
-        #     self.right_arm_group.execute(plan)
-        #     self.right_arm_group.stop()
-        #     # Go to target pose
-        #     plan, fraction = planning (target_pose)
-        #     print(f"{cyan}\nGoing to target pose, traj fraction: {fraction}\n")
-        #     self.right_arm_group.execute(plan)
-        #     self.right_arm_group.stop()
         
-        # self.right_arm_group.clear_pose_targets()
+    
 
     def reset_callback(self, req):
         """
@@ -239,13 +283,13 @@ class Mover(object):
         """
         #Declaring the reset position and assigning coordinates
         right_target_pose = Pose()
-        right_target_pose.position.x = rospy.get_param("read.p.x")
-        right_target_pose.position.y = rospy.get_param("read.p.y")
-        right_target_pose.position.z = rospy.get_param("read.p.z")
-        right_target_pose.orientation.x = rospy.get_param("read.o.x")
-        right_target_pose.orientation.y = rospy.get_param("read.o.y")
-        right_target_pose.orientation.z = rospy.get_param("read.o.z")
-        right_target_pose.orientation.w = rospy.get_param("read.o.w")
+        right_target_pose.position.x = rospy.get_param("read")["p.x"]
+        right_target_pose.position.y = rospy.get_param("read")["p.y"]
+        right_target_pose.position.z = rospy.get_param("read")["p.z"]
+        right_target_pose.orientation.x = rospy.get_param("read")["o.x"]
+        right_target_pose.orientation.y = rospy.get_param("read")["o.y"]
+        right_target_pose.orientation.z = rospy.get_param("read")["o.z"]
+        right_target_pose.orientation.w = rospy.get_param("read")["o.w"]
 
         # Set target
         self.right_arm_group.set_pose_target(right_target_pose,end_effector_link="right_gripper")
@@ -290,6 +334,7 @@ class Mover(object):
             Using cartesian path planner
         """
         self.cartesian_plan_execute(self.right_arm_group,right_target_pose)
+        # self.saved_pose_mover(self.right_arm_group,right_target_pose)
 
         return EmptyResponse()
     
