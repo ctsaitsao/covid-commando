@@ -4,6 +4,7 @@
     Inverse Kinematics for Baxter end effector using moveit package 
 """
 import sys
+import numpy as np 
 import rospy
 import baxter_interface
 from baxter_interface import CHECK_VERSION
@@ -14,6 +15,8 @@ from std_srvs.srv import Empty, EmptyResponse
 from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
+cyan = '\033[96m'
+
 class Mover(object):
     def __init__(self):
         self.robot = moveit_commander.RobotCommander()
@@ -23,6 +26,9 @@ class Mover(object):
         self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm", wait_for_servers=30)
         self.right_arm_group = moveit_commander.MoveGroupCommander("right_arm", wait_for_servers=30)
         
+        # Limbs 
+        self.right_arm_limb = baxter_interface.limb.Limb("right")
+
         # Reset Service:
         rospy.Service('/reset', Empty,self.reset_callback)
         # GetPose service:
@@ -44,6 +50,13 @@ class Mover(object):
         # self.planning_frame_left = 'head_camera'
         # self.planning_frame_right = 'head_camera'
         
+        # Make right arm to go neutral position
+        print(f"{cyan}Going to neutral pose...") 
+        self.right_arm_limb.move_to_neutral()
+
+        # Set planning time to 10s
+        self.right_arm_group.set_planning_time(10)
+
         #adding multiple walls to represent safety barrier for people
         self.add_wall()
 
@@ -133,29 +146,90 @@ class Mover(object):
                                r=angles[0], p=angles[1], yaw=angles[2])
 
     def cartesian_plan_execute(self,move_group,target_pose):
-        tries = 0
+        """
+            Plans a cartesian path to target pose
 
-        plan,fraction = move_group.compute_cartesian_path(
-                        [target_pose],
-                        0.01,
-                        0.0
-        )
+            If it is not able to reach 95% of the trajectory, go to a random pose that is close by,
+            and try again 
+        """
+        def planning(pose):
+            plan,fraction = move_group.compute_cartesian_path(
+                            [pose],
+                            0.01,
+                            0.0
+            )
+            return plan, fraction
+        
+        def point_from_pose(pose):
+            point = np.array([pose.position.x,
+                            pose.position.y,
+                            pose.position.z])
+            return point 
 
-        print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
+        def current_to_rand_dist(rand_pose):
+            pass
+
+        def rand_to_target_dist(rand_pose, target_pose):
+            rand_point = point_from_pose(rand_pose)
+            target_point = point_from_pose(target_pose)
+            dist = np.linalg.norm(target_point - rand_point)
+            return dist
+
+        # Plan target pose
+        plan, fraction = planning(target_pose)
+        print(f"{cyan}\nTrajectory Planned:{fraction}\n")
         self.right_arm_group.execute(plan)
         self.right_arm_group.stop()
-
-        while fraction<1 and tries<10:
-            plan,fraction = move_group.compute_cartesian_path(
-                        [target_pose],
-                        0.01,
-                        0.0
-        )
-            print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
+        
+        while fraction < 0.95:
+            # Get random pose 
+            dist = 1e5
+            tries = 0
+            while dist>1:
+                rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
+                dist = rand_to_target_dist(rand_pose,target_pose)
+                print(f"{cyan}\nRand-Target Dist: {dist}, Tries: {tries}")
+                tries += 1
+            print(f"{cyan}\nRand-Target Dist: {dist}")
+            # Go to random pose
+            rand_plan, rand_fraction = planning(rand_pose)
+            print(f"{cyan}Going to random pose, traj fraction: {rand_fraction}\n")
+            self.right_arm_group.execute(rand_plan)
+            self.right_arm_group.stop()
+            # Go to target pose
+            plan, fraction = planning (target_pose)
+            print(f"{cyan}\nGoing to target pose, traj fraction: {fraction}\n")
             self.right_arm_group.execute(plan)
             self.right_arm_group.stop()
-            tries +=1
-            
+                 
+
+
+        # # Execute if 95% of trajectory is computed
+        # if fraction > 0.95:
+        #     self.right_arm_group.execute(plan)
+        #     self.right_arm_group.stop()
+        
+        # else:
+        #     # Get random pose 
+        #     dist = 1e5
+        #     tries = 0
+        #     while dist>1:
+        #         rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
+        #         dist = rand_to_target_dist(rand_pose,target_pose)
+        #         print(f"{cyan}\nRand-Target Dist: {dist}, Tries: {tries}")
+        #         tries += 1
+                
+        #     print(f"{cyan}\nRand-Target Dist: {dist}")
+        #     # Go to random pose
+        #     plan, fraction = planning(rand_pose)
+        #     print(f"{cyan}Going to random pose, traj fraction: {fraction}\n")
+        #     self.right_arm_group.execute(plan)
+        #     self.right_arm_group.stop()
+        #     # Go to target pose
+        #     plan, fraction = planning (target_pose)
+        #     print(f"{cyan}\nGoing to target pose, traj fraction: {fraction}\n")
+        #     self.right_arm_group.execute(plan)
+        #     self.right_arm_group.stop()
         
         # self.right_arm_group.clear_pose_targets()
 
@@ -165,18 +239,18 @@ class Mover(object):
         """
         #Declaring the reset position and assigning coordinates
         right_target_pose = Pose()
-        right_target_pose.position.x = rospy.get_param("reset.p.x")
-        right_target_pose.position.y = rospy.get_param("reset.p.y")
-        right_target_pose.position.z = rospy.get_param("reset.p.z")
-        right_target_pose.orientation.x = rospy.get_param("reset.o.x")
-        right_target_pose.orientation.y = rospy.get_param("reset.o.y")
-        right_target_pose.orientation.z = rospy.get_param("reset.o.z")
-        right_target_pose.orientation.w = rospy.get_param("reset.o.w")
+        right_target_pose.position.x = rospy.get_param("read.p.x")
+        right_target_pose.position.y = rospy.get_param("read.p.y")
+        right_target_pose.position.z = rospy.get_param("read.p.z")
+        right_target_pose.orientation.x = rospy.get_param("read.o.x")
+        right_target_pose.orientation.y = rospy.get_param("read.o.y")
+        right_target_pose.orientation.z = rospy.get_param("read.o.z")
+        right_target_pose.orientation.w = rospy.get_param("read.o.w")
 
-        #set target
+        # Set target
         self.right_arm_group.set_pose_target(right_target_pose,end_effector_link="right_gripper")
-        print(right_target_pose)
-        print("Setting Target")
+        # print(right_target_pose)
+        print("\nGoing to read position\n")
 
         #Can be done for left arm too
         """
@@ -242,22 +316,20 @@ class Mover(object):
         pose_goal.pose.orientation.w = quat[3]
 
         """
-            Using Go to Pose
+            Using go to pose 
         """
-        self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
+        # print("Setting Target")
+        # self.right_arm_group.set_pose_target(pose_goal.pose,end_effector_link="right_gripper")        
+        # success, traj, _, errCode = self.right_arm_group.plan()
+        # print("Executing...")
+        # self.right_arm_group.execute(traj)
+        # self.right_arm_group.stop()
 
 
         """
             Using Cartesian path planner
         """
-        plan,fraction = self.right_arm_group.compute_cartesian_path(
-                        [pose_goal.pose],
-                        0.01,
-                        0.0
-        )
-        self.right_arm_group.execute(plan)
-        self.right_arm_group.stop()
-        self.right_arm_group.clear_pose_targets()
+        self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
         
         
         return GoToPoseResponse()
