@@ -176,7 +176,51 @@ class Mover(object):
                                z=right_current_pose.position.z,
                                r=angles[0], p=angles[1], yaw=angles[2])
 
-    ###Trial to read joint angles 
+    def cartesian_plan_execute(self,move_group,target_pose):
+        tries = 0
+
+        plan,fraction = move_group.compute_cartesian_path(
+                        [target_pose],
+                        0.01,
+                        0.0
+        )
+
+        print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
+        self.right_arm_group.execute(plan)
+        self.right_arm_group.stop()
+
+        while fraction<1 and tries<10:
+            plan,fraction = move_group.compute_cartesian_path(
+                        [target_pose],
+                        0.01,
+                        0.0
+        )
+            print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
+            self.right_arm_group.execute(plan)
+            self.right_arm_group.stop()
+            tries +=1
+            
+        
+        # self.right_arm_group.clear_pose_targets()
+
+    def reset_callback(self, req):
+        """
+        Moves the right arm to a default home state
+        """
+        #Declaring the reset position and assigning coordinates
+        right_target_pose = Pose()
+        right_target_pose.position.x = rospy.get_param("reset.p.x")
+        right_target_pose.position.y = rospy.get_param("reset.p.y")
+        right_target_pose.position.z = rospy.get_param("reset.p.z")
+        right_target_pose.orientation.x = rospy.get_param("reset.o.x")
+        right_target_pose.orientation.y = rospy.get_param("reset.o.y")
+        right_target_pose.orientation.z = rospy.get_param("reset.o.z")
+        right_target_pose.orientation.w = rospy.get_param("reset.o.w")
+
+        #set target
+        self.right_arm_group.set_pose_target(right_target_pose,end_effector_link="right_gripper")
+        print(right_target_pose)
+        print("Setting Target")
 
     def get_joint_angles_callback(self, req):
         """
@@ -200,16 +244,16 @@ class Mover(object):
         print("Planning...")
         success, traj, _, errCode = self.right_arm_group.plan()
 
-        # Execute 
-        print("Executing...")
+        # # Execute 
+        # print("Executing...")
 
-        if not success:
-            print("Error, planning failed")
-            return EmptyResponse()
-        else:
-            self.right_arm_group.execute(traj)
-            self.right_arm_group.stop()
-            print("Success!")
+        # if not success:
+        #     print("Error, planning failed")
+        #     return EmptyResponse()
+        # else:
+        #     self.right_arm_group.execute(traj)
+        #     self.right_arm_group.stop()
+        #     print("Success!")
         
         # Clear pose targets 
         self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
