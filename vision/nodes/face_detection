@@ -5,6 +5,7 @@ import rospy
 import cv2
 import tf2_ros
 import struct
+import math
 
 from std_msgs.msg import String
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2
@@ -35,11 +36,11 @@ class FaceDetection:
         self.depth_sub = rospy.Subscriber('/camera/aligned_depth_to_color/image_raw',
                                           Image,
                                           self.depth_callback)
-        self.state_sub = rospy.Subscriber('state', String, self.state_callback)
+        self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
         self.camera_info_sub = rospy.Subscriber('/camera/color/camera_info',  # same as /camera/aligned_depth_to_color/image_raw
                                                 CameraInfo,
                                                 self.camera_info_callback)
-        self.pose_pub = rospy.Publisher('face_pose', Pose, queue_size=10)
+        self.pose_pub = rospy.Publisher('/face_pose', Pose, queue_size=10)
 
         self.rate = rospy.Rate(100)
 
@@ -53,7 +54,8 @@ class FaceDetection:
         self.face_pose = None
 
         self.tf_broadcaster = tf2_ros.TransformBroadcaster()
-        self.tf_listener = tf2_ros.TransformListener(tf2_ros.Buffer())
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
         # Initialize variables needed for face detection loop
         self.dx = []
@@ -137,7 +139,7 @@ class FaceDetection:
                                 # y=0.1497960282015105,
                                 # z=-0.1870116420679273),
                                 x=0.1,
-                                y=0, #0.03
+                                y=0.03, #0.03
                                 z=0.87), #0.15
                             rotation=Quaternion(
                                 # x=0.08820884012981547,
@@ -176,9 +178,26 @@ class FaceDetection:
                     Trf_stamped.transform = Trf
 
                     self.tf_broadcaster.sendTransform(Tbr_stamped)
-                    self.tf_broadcaster.sendTransform(Trf_stamped)
 
-                    print(Trf_stamped)
+                    if math.sqrt(Trf.translation.x**2 + Trf.translation.y**2
+                                 + Trf.translation.z**2 < 4):
+                        self.tf_broadcaster.sendTransform(Trf_stamped)
+
+                    try:
+                        Twf = self.tf_buffer.lookup_transform('world',
+                                                              'face',
+                                                              rospy.Time())
+                    except (tf2_ros.LookupException,
+                            tf2_ros.ConnectivityException,
+                            tf2_ros.ExtrapolationException):
+                        continue
+
+                    self.pose_pub.publish(Pose(position=Point(
+                        x=Twf.transform.translation.x,
+                        y=Twf.transform.translation.y,
+                        z=Twf.transform.translation.z)))
+
+                    print(Twf)
 
                     # Twf = self.tf_listener.lookupTransform('/face', '/world', rospy.Time(0))
 

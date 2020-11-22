@@ -81,12 +81,10 @@ Visualization Manager:
           Value: false
         dummyhead1:
           Value: false
-        face:
-          Value: true
         head:
           Value: false
         head_camera:
-          Value: true
+          Value: false
         l_gripper_l_finger:
           Value: false
         l_gripper_l_finger_tip:
@@ -326,17 +324,6 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        camera_link:
-          camera_aligned_depth_to_color_frame:
-            camera_color_optical_frame:
-              {}
-            face:
-              {}
-          camera_color_frame:
-            {}
-          camera_depth_frame:
-            camera_depth_optical_frame:
-              {}
         world:
           base:
             collision_head_link_1:
@@ -430,6 +417,9 @@ Visualization Manager:
                 {}
               sonar_ring:
                 {}
+          camera_aligned_depth_to_color_frame:
+            camera_color_optical_frame:
+              {}
           reference/base:
             reference/collision_head_link_1:
               {}

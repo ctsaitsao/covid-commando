@@ -1,3 +1,9 @@
 <launch>
+    <!-- Vision Launch -->
+    <include file = "$(find vision)/launch/face_detection.launch"/>
+    <!-- Motion Launch  -->
+    <include file = "$(find motion)/launch/mover.launch"/>
+    
+    <!-- State machine node-->
     <node name="state_machine" pkg="state_machine" type="state_machine_node" output="screen"/>
 </launch>

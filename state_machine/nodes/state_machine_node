@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 import cv2
 import cv_bridge
-from enum import Enum, auto
 
 import baxter_interface.digital_io as DIO
 import rospy
@@ -25,36 +24,34 @@ class StateMachine:
         rospy.wait_for_service('/reset')
         rospy.wait_for_service('/get_pose')
         rospy.wait_for_service('/go_to_pose')
-        self.motion_reset_srv = rospy.ServiceProxy('/reset',Empty)
-        self.motion_getPose_srv = rospy.ServiceProxy('/get_pose',GetPose)
-        self.motion_goToPose_srv = rospy.ServiceProxy('/go_to_pose',GoToPose)
+        self.motion_reset_srv = rospy.ServiceProxy('/reset', Empty)
+        self.motion_getPose_srv = rospy.ServiceProxy('/get_pose', GetPose)
+        self.motion_goToPose_srv = rospy.ServiceProxy('/go_to_pose', GoToPose)
 
         # State publisher 
-        self.state_pub = rospy.Publisher('state', String, queue_size=10)
+        self.state_pub = rospy.Publisher('/state', String, queue_size=10)
         self.state = 'search_for_face'
         self.prev_state = ''
-        self.set_state = rospy.Service('set_state', SetState,
+        self.set_state = rospy.Service('/set_state', SetState,
                                        self.set_state_callback)
         self.rate = 100
+
+        # Face pose subscriber
+        self.face_pose_sub = rospy.Subscriber('/face_pose', Pose, self.face_pose_callback)
+        self.face_pose = None
 
         # Display publisher 
         self.display_pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
 
-        # Head camera subscriber
-        self.head_camera_subscriber = rospy.Subscriber('/cameras/head_camera/image',Image,
-                                                        self.head_camera_callback)
-        self.stream_head_camera = False
-
-
         # Digital IO for controlling arm light
-        self.light_control = DIO.DigitalIO('left_outer_light') 
+        self.light_control = DIO.DigitalIO('left_outer_light')
 
         # Initialization
         ## Display initial image 
         self.images_dir = str(Path(os.path.realpath(__file__)).parents[1])+'/images/'
         self.update_screen()
         ## Robot should be in search_for_face pose
-        self.motion_reset_srv.call()
+        # self.motion_reset_srv()
     
         # Timer callback 
         self.timer = rospy.Timer(rospy.Duration(1/self.rate), self.timer_callback)
@@ -85,13 +82,6 @@ class StateMachine:
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
         self.display_pub.publish(msg)
         rospy.sleep(1)
-
-    def head_camera_callback(self,msg):
-        """
-            Streams head camera image to screen 
-        """
-        if self.stream_head_camera:
-            self.display_pub.publish(msg)
     
     def set_lights(self):
         # Turns on light for 10s 
@@ -99,34 +89,44 @@ class StateMachine:
         rospy.sleep(10)
         self.light_control.set_output(False)
 
+    def face_pose_callback(self, data):
+        self.face_pose = data
+
     def timer_callback(self,event):
         """
             Timer callback to publish state
         """
         self.state_pub.publish(self.state)
-        if self.state != self.prev_state:
-            
-            if self.state == 'search_for_face':
-                self.update_screen()
-                # Go to search_for_face pose and wait for face to be found 
-                """
-                    Vision node will be publishing on 'face_pose'
-                    If the distance is less than 3m, do not go to 'move_to_face'
-                """
-                pass 
 
-            elif self.state == 'move_to_face':
+        if self.state == 'search_for_face':
+            self.update_screen()
+            # Go to search_for_face pose and wait for face to be found 
+            """
+                Vision node will be publishing on 'face_pose'
+                If the distance is less than 3m, do not go to 'move_to_face'
+            """
+            if self.face_pose:
+                self.state = 'move_to_face'
+
+        if self.state != self.prev_state:
+
+            if self.state == 'move_to_face':
                 self.update_screen()
                 # When a face is found, vision node will set state to move_to_face
                 # Call motion Step service to move to face pose 
                 """
                     Update topic and service call when nodes are done
                 """
-                face_pose = rospy.wait_for_message('face_pose',Pose,timeout=1.5)
-                self.motion_step_srv.call(face_pose)
-                # Go to take_temperature state when motion is completed
+                # face_pose = rospy.wait_for_message('face_pose',Pose,timeout=1.5)
+
+                self.motion_goToPose_srv(x=self.face_pose.position.x - 0.1,
+                                         y=self.face_pose.position.y,
+                                         z=self.face_pose.position.z,
+                                         r=0.26,
+                                         p=-1.5,
+                                         yaw=2.91)
+
                 self.state = 'take_temperature'
-                pass
 
             elif self.state == 'take_temperature':
                 self.update_screen()
@@ -155,11 +155,11 @@ class StateMachine:
                 rospy.sleep(10)
                 self.state = 'search_for_face'
                 pass 
-        
-        else:
-            pass 
+            
+            else:
+                pass 
 
-        self.prev_state = self.state
+            self.prev_state = self.state
 
 def main():
     """ The main() function. """
