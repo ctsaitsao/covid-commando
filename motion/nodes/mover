@@ -19,15 +19,15 @@ class Mover(object):
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
         
-        # arm groups
+        # Arm groups
         self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm", wait_for_servers=30)
         self.right_arm_group = moveit_commander.MoveGroupCommander("right_arm", wait_for_servers=30)
         
-        #Reset Service:
+        # Reset Service:
         rospy.Service('/reset', Empty,self.reset_callback)
-        #GetPose service:
+        # GetPose service:
         rospy.Service('/get_pose', GetPose, self.get_pose_callback)
-        #GoToPose service
+        # GoToPose service
         rospy.Service('/go_to_pose', GoToPose, self.go_to_pose_callback)
         rospy.wait_for_service('/go_to_pose')
         self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
@@ -132,6 +132,33 @@ class Mover(object):
                                z=right_current_pose.position.z,
                                r=angles[0], p=angles[1], yaw=angles[2])
 
+    def cartesian_plan_execute(self,move_group,target_pose):
+        tries = 0
+
+        plan,fraction = move_group.compute_cartesian_path(
+                        [target_pose],
+                        0.01,
+                        0.0
+        )
+
+        print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
+        self.right_arm_group.execute(plan)
+        self.right_arm_group.stop()
+
+        while fraction<1 and tries<10:
+            plan,fraction = move_group.compute_cartesian_path(
+                        [target_pose],
+                        0.01,
+                        0.0
+        )
+            print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
+            self.right_arm_group.execute(plan)
+            self.right_arm_group.stop()
+            tries +=1
+            
+        
+        # self.right_arm_group.clear_pose_targets()
+
     def reset_callback(self, req):
         """
         Moves the right arm to a default home state
@@ -163,24 +190,32 @@ class Mover(object):
         left_target_pose.orientation.z = 0.24710610580797293
         left_target_pose.orientation.w = 0.9190144634930815
         """
-                
-        # Plan 
-        print("Planning...")
-        success, traj, _, errCode = self.right_arm_group.plan()
-
-        # Execute 
-        print("Executing...")
-
-        if not success:
-            print("Error, planning failed")
-            return EmptyResponse()
-        else:
-            self.right_arm_group.execute(traj)
-            self.right_arm_group.stop()
-            print("Success!")
         
-        # Clear pose targets 
-        self.right_arm_group.clear_pose_targets()
+        """
+            Using go to pose 
+        """
+        # # Plan 
+        # print("Planning...")
+        # success, traj, _, errCode = self.right_arm_group.plan()
+
+        # # Execute 
+        # print("Executing...")
+
+        # if not success:
+        #     print("Error, planning failed")
+        #     return EmptyResponse()
+        # else:
+        #     self.right_arm_group.execute(traj)
+        #     self.right_arm_group.stop()
+        #     print("Success!")
+        
+        # # Clear pose targets 
+        # self.right_arm_group.clear_pose_targets()
+
+        """
+            Using cartesian path planner
+        """
+        self.cartesian_plan_execute(self.right_arm_group,right_target_pose)
 
         return EmptyResponse()
     
@@ -206,16 +241,25 @@ class Mover(object):
         pose_goal.pose.orientation.z = quat[2]
         pose_goal.pose.orientation.w = quat[3]
 
-        self.right_arm_group.set_pose_target(pose_goal.pose)
-        success, traj, _, errCode = self.right_arm_group.plan()
+        """
+            Using Go to Pose
+        """
+        self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
 
-        # if not success:
-        #     return GoToPoseResponse(err_code=err_code)
-        
-        self.right_arm_group.execute(traj)
+
+        """
+            Using Cartesian path planner
+        """
+        plan,fraction = self.right_arm_group.compute_cartesian_path(
+                        [pose_goal.pose],
+                        0.01,
+                        0.0
+        )
+        self.right_arm_group.execute(plan)
         self.right_arm_group.stop()
         self.right_arm_group.clear_pose_targets()
-
+        
+        
         return GoToPoseResponse()
 
 
