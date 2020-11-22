@@ -539,8 +539,7 @@ class Mover(object):
         """
             Using cartesian path planner
         """
-        # self.cartesian_plan_execute(self.right_arm_group,right_target_pose)
-        # # self.saved_pose_mover(self.right_arm_group,right_target_pose)
+        self.cartesian_plan_execute(self.right_arm_group,right_target_pose)
 
         return EmptyResponse()
     
@@ -568,15 +567,25 @@ class Mover(object):
         pose_goal.pose.orientation.w = quat[3]
 
         """
-            Using go to pose 
+            Using Go to Pose
         """
-        # print("Setting Target")
-        # self.right_arm_group.set_pose_target(pose_goal.pose,end_effector_link="right_gripper")        
-        # success, traj, _, errCode = self.right_arm_group.plan()
-        # print("Executing...")
-        # self.right_arm_group.execute(traj)
-        # self.right_arm_group.stop()
+        self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
 
+
+        """
+            Using Cartesian path planner
+        """
+        plan,fraction = self.right_arm_group.compute_cartesian_path(
+                        [pose_goal.pose],
+                        0.01,
+                        0.0
+        )
+        self.right_arm_group.execute(plan)
+        self.right_arm_group.stop()
+        self.right_arm_group.clear_pose_targets()
+        
+        
+        return GoToPoseResponse()
 
         """
             Using Cartesian path planner
