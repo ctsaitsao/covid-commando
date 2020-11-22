@@ -12,7 +12,9 @@ import moveit_commander
 from geometry_msgs.msg import Pose, PoseStamped, Point
 from moveit_commander.conversions import pose_to_list, list_to_pose
 from std_srvs.srv import Empty, EmptyResponse
-from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse
+from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse, GetAngle
+from sensor_msgs.msg import JointState
+
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
 cyan = '\033[96m'
@@ -38,6 +40,11 @@ class Mover(object):
         rospy.wait_for_service('/go_to_pose')
         self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
 
+        #Get_Joint_Angles Service:
+        rospy.Service('/get_joint_angles', Empty, self.get_joint_angles_callback)
+
+        #Go to Joint angle service
+        rospy.Service('/go_to_joint_angle',Empty, self.move_to_joint)
 
         # Enable Robot 
         print("Getting robot state... ")
@@ -53,7 +60,6 @@ class Mover(object):
         # Make right arm to go neutral position
         print(f"{cyan}Going to neutral pose...") 
         self.right_arm_limb.move_to_neutral()
-
         # Set planning time to 10s
         self.right_arm_group.set_planning_time(10)
 
@@ -96,19 +102,17 @@ class Mover(object):
     def add_wall(self):
         wall_1_pose = PoseStamped()
         wall_1_pose.header.frame_id = self.planning_frame_right
-        wall_1_pose.pose.position.x = 1
+        wall_1_pose.pose.position.x = 1.5
         self.scene.add_box('wall1', wall_1_pose, size=(0.1, 0.5, 2))
         while not self.wait_for_state_update('wall1', item_known=True):
             self.scene.add_box('wall1', wall_1_pose, size=(0.1, 0.5, 2))
 
         wall_2_pose = PoseStamped()
         wall_2_pose.header.frame_id = self.planning_frame_right
-        wall_2_pose.pose.position.x = 0.8
+        wall_2_pose.pose.position.x = 1.5
         wall_2_pose.pose.position.y = 0.8
         ###
         angle2 = quaternion_from_euler(0,0,0.524)
-        #wall_2_pose.pose.orientation.x = angle2[0]
-        #wall_2_pose.pose.orientation.y = angle2[1]
         wall_2_pose.pose.orientation.z = angle2[2]
         wall_2_pose.pose.orientation.w = angle2[3]
         self.scene.add_box('wall2', wall_2_pose, size=(0.1, 0.5, 2))
@@ -117,12 +121,10 @@ class Mover(object):
 
         wall_3_pose = PoseStamped()
         wall_3_pose.header.frame_id = self.planning_frame_right
-        wall_3_pose.pose.position.x = 0.8
+        wall_3_pose.pose.position.x = 1.5
         wall_3_pose.pose.position.y = -0.8
 
         angle3 = quaternion_from_euler(0,0,-0.524)
-        #wall_3_pose.pose.orientation.x = angle3[0]
-        #wall_3_pose.pose.orientation.y = angle3[1]
         wall_3_pose.pose.orientation.z = angle3[2]
         wall_3_pose.pose.orientation.w = angle3[3]
         self.scene.add_box('wall3', wall_3_pose, size=(0.1, 0.5, 2))
@@ -144,6 +146,20 @@ class Mover(object):
                                y=right_current_pose.position.y,
                                z=right_current_pose.position.z,
                                r=angles[0], p=angles[1], yaw=angles[2])
+
+    ###Trial to read joint angles 
+
+    def get_joint_angles_callback(self, req):
+        """
+        Reads the current joint angles and prints them
+        """
+        right_current_angles = self.right_arm_group.get_current_joint_values()
+        print(right_current_angles)
+        
+        return Empty
+
+
+    #####
 
     def cartesian_plan_execute(self,move_group,target_pose):
         """
@@ -177,15 +193,16 @@ class Mover(object):
 
         # Plan target pose
         plan, fraction = planning(target_pose)
-        print(f"{cyan}\nTrajectory Planned:{fraction}\n")
+        print(f"{cyan}\nTrajectory Planned:{fraction}")
+        print(f"{cyan}First attempt to target pose\n")
         self.right_arm_group.execute(plan)
         self.right_arm_group.stop()
-        
+
         while fraction < 0.95:
             # Get random pose 
             dist = 1e5
             tries = 0
-            while dist>1:
+            while dist>0.5:
                 rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
                 dist = rand_to_target_dist(rand_pose,target_pose)
                 print(f"{cyan}\nRand-Target Dist: {dist}, Tries: {tries}")
@@ -203,35 +220,99 @@ class Mover(object):
             self.right_arm_group.stop()
                  
 
+    def saved_pose_mover(self, move_group, target_pose):
+        
+        saved_poses = rospy.get_param("saved_poses")
+        def planning(pose):
+            plan,fraction = move_group.compute_cartesian_path(
+                            [pose],
+                            0.01,
+                            0.0
+            )
+            return plan, fraction
+        def point_from_pose(pose):
+            point = np.array([pose.position.x,
+                            pose.position.y,
+                            pose.position.z])
+            return point 
+        def point_from_saved_pose(saved_pose):
+            print(f"{cyan}point_from_saved_pose")
+            saved_pose = saved_pose[list(saved_pose.keys())[0]]
+            point = np.array([saved_pose["p.x"],
+                            saved_pose["p.y"],
+                            saved_pose["p.z"]])
+            return point
+        def closest_saved_pose(target_pose):
+            min_dist = 1e5
+            closest = None
+            for i,saved_pose in enumerate(saved_poses):
+                saved_point = point_from_saved_pose(saved_pose)
+                print(f"{cyan}saved_point")
+                target_point = point_from_pose(target_pose)
+                print(f"{cyan}target_point")
+                dist = np.linalg.norm(target_point - saved_point)
+                if min_dist>dist:
+                    min_dist = dist
+                    closest = saved_pose
+            closest = closest[list(closest.keys())[0]]
+            print(f"{cyan}{closest}")
+            closest_pose = Pose()
+            closest_pose.position.x = closest["p.x"]
+            closest_pose.position.y = closest["p.y"]
+            closest_pose.position.z = closest["p.z"]
+            closest_pose.orientation.x = closest["o.x"]
+            closest_pose.orientation.y = closest["o.y"]
+            closest_pose.orientation.z = closest["o.z"]
+            return closest_pose         
+        
+        # Cartesian to saved pose
+        print(f"{cyan}Going to closest saved pose")
+        closest_pose = closest_saved_pose(target_pose)
+        print(f"{cyan}closest_found")
+        self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
+        success, traj, _, errCode = self.right_arm_group.plan()
+        self.right_arm_group.execute(traj)
+        self.right_arm_group.stop()
+        self.right_arm_group.clear_pose_targets()
+        
+        # plan, fraction = planning(closest_pose)
+        # self.right_arm_group.execute(plan)
+        # self.right_arm_group.stop()
 
-        # # Execute if 95% of trajectory is computed
-        # if fraction > 0.95:
-        #     self.right_arm_group.execute(plan)
-        #     self.right_arm_group.stop()
+        # Go to target pose 
+        print(f"{cyan}Going to target pose")
+        self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
+        success, traj, _, errCode = self.right_arm_group.plan()
+        self.right_arm_group.execute(traj)
+        self.right_arm_group.stop()
+        self.right_arm_group.clear_pose_targets()
+
+        # plan, fraction = planning(target_pose)
+        # self.right_arm_group.execute(plan)
+        # self.right_arm_group.stop()
         
-        # else:
-        #     # Get random pose 
-        #     dist = 1e5
-        #     tries = 0
-        #     while dist>1:
-        #         rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
-        #         dist = rand_to_target_dist(rand_pose,target_pose)
-        #         print(f"{cyan}\nRand-Target Dist: {dist}, Tries: {tries}")
-        #         tries += 1
-                
-        #     print(f"{cyan}\nRand-Target Dist: {dist}")
-        #     # Go to random pose
-        #     plan, fraction = planning(rand_pose)
-        #     print(f"{cyan}Going to random pose, traj fraction: {fraction}\n")
-        #     self.right_arm_group.execute(plan)
-        #     self.right_arm_group.stop()
-        #     # Go to target pose
-        #     plan, fraction = planning (target_pose)
-        #     print(f"{cyan}\nGoing to target pose, traj fraction: {fraction}\n")
-        #     self.right_arm_group.execute(plan)
-        #     self.right_arm_group.stop()
-        
-        # self.right_arm_group.clear_pose_targets()
+#### Service callback to move to Joint angle
+    def move_to_joint(self, req):
+        """
+        Move the arm to a set of joint angles
+        """
+        joint_target_pose = self.right_arm_group.get_current_joint_values()
+        joint_target_pose[0] = 1.3203739631723699
+        joint_target_pose[1] = -0.6626797003664987
+        joint_target_pose[2] = -0.3090971287589109
+        joint_target_pose[3] = 1.23255356306593
+        joint_target_pose[4] = 0.7485826244880819
+        joint_target_pose[5] = -0.6312330942148477
+        joint_target_pose[6] = 2.6599226861933074
+
+
+        self.right_arm_group.go(joint_target_pose, wait=True)
+
+        self.right_arm_group.stop()
+        #self.right_arm_group.clear_pose_target()
+
+####
+
 
     def reset_callback(self, req):
         """
@@ -239,13 +320,13 @@ class Mover(object):
         """
         #Declaring the reset position and assigning coordinates
         right_target_pose = Pose()
-        right_target_pose.position.x = rospy.get_param("read.p.x")
-        right_target_pose.position.y = rospy.get_param("read.p.y")
-        right_target_pose.position.z = rospy.get_param("read.p.z")
-        right_target_pose.orientation.x = rospy.get_param("read.o.x")
-        right_target_pose.orientation.y = rospy.get_param("read.o.y")
-        right_target_pose.orientation.z = rospy.get_param("read.o.z")
-        right_target_pose.orientation.w = rospy.get_param("read.o.w")
+        right_target_pose.position.x = rospy.get_param("read")["p.x"]
+        right_target_pose.position.y = rospy.get_param("read")["p.y"]
+        right_target_pose.position.z = rospy.get_param("read")["p.z"]
+        right_target_pose.orientation.x = rospy.get_param("read")["o.x"]
+        right_target_pose.orientation.y = rospy.get_param("read")["o.y"]
+        right_target_pose.orientation.z = rospy.get_param("read")["o.z"]
+        right_target_pose.orientation.w = rospy.get_param("read")["o.w"]
 
         # Set target
         self.right_arm_group.set_pose_target(right_target_pose,end_effector_link="right_gripper")
@@ -290,6 +371,7 @@ class Mover(object):
             Using cartesian path planner
         """
         self.cartesian_plan_execute(self.right_arm_group,right_target_pose)
+        # self.saved_pose_mover(self.right_arm_group,right_target_pose)
 
         return EmptyResponse()
     

@@ -11,13 +11,21 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Pose
 
-import baxter_interface.digital_io as DIO
-
+# import baxter_interface.digital_io as DIO
 
 
 """
-Do CV on the small camera to detect the sensor green vs red, average over an n x n window centered around xy
+Startup procedures
+
+1- connect to baxter
+2- Load camera:       rosrun baxter_tools camera_control.py -o right_hand_camera -r 320x200
+3- Check video feed:  rosrun image_view image_view image:=/cameras/right_hand_camera/image
+4- Launch this node
+
+X- Blink can be called through rosrun baxter_examples digital_io_blink.py (will blink once)
 """
+
+
 
 class ReadTemperature:
 
@@ -25,10 +33,13 @@ class ReadTemperature:
 
         # CENTROIDS NEED TO BE UPDATED FOR BAXTER HAND CAMERA
         # Image max 320x200
-        self.centroidX  = 160
-        self.centroidY  = 100 
-        self.windowSize = 25
-        self.red_threshold = 200
+        # Values for mounted camera: 230, 165, 40, 25
+        self.centroidX   = 230
+        self.centroidY   = 50 
+        self.windowSizeX = 25
+        self.windowSizeY = 25
+        
+        self.red_threshold   = 200
         self.green_threshold = 200
 
         # Initialize CvBridge object, which allows conversion between ROS message
@@ -46,36 +57,36 @@ class ReadTemperature:
         self.state = None
 
         # SERVICE FOR DEBUGGING, SEND A FAKE IO LIGHT TO THE ARM
-        self.blink = rospy.Service("blink_arm_light", Trigger, self.blinkCallback )
+        # self.blink = rospy.Service("blink_arm_light", Trigger, self.blinkCallback )
 
 
-    def blinkCallback(self, data):
-        """
-        Blinks a Digital Output on then off.
-        Taken from baxter_examples/scripts/digital_io_blink.py
-        """
+    # def blinkCallback(self, data):
+    #     """
+    #     Blinks a Digital Output on then off.
+    #     Taken from baxter_examples/scripts/digital_io_blink.py
+    #     """
 
-        self.io_component = "right_outer_light"
+    #     self.io_component = "right_outer_light"
 
-        rospy.loginfo("Blinking Digital Output: %s", self.io_component)
-        self.light = DIO.DigitalIO(self.io_component)
+    #     rospy.loginfo("Blinking Digital Output: %s", self.io_component)
+    #     self.light = DIO.DigitalIO(self.io_component)
 
-        print("Initial state: ", self.light.state)
+    #     print("Initial state: ", self.light.state)
 
-        # turn on light
-        self.light.set_output(True)
-        rospy.sleep(2)
-        print("New state: ", self.light.state)
+    #     # turn on light
+    #     self.light.set_output(True)
+    #     rospy.sleep(2)
+    #     print("New state: ", self.light.state)
 
-        # reset output
-        self.light.set_output(False)
-        rospy.sleep(1)
-        print("Final state:", self.light.state)
+    #     # reset output
+    #     self.light.set_output(False)
+    #     rospy.sleep(1)
+    #     print("Final state:", self.light.state)
         
-        self.success = True
-        self.message = "Sending blink command"
+    #     self.success = True
+    #     self.message = "Sending blink command"
             
-        return self.success, self.message
+    #     return self.success, self.message
 
 
  
@@ -104,41 +115,43 @@ class ReadTemperature:
             print(e)
 
         # Define the window used for capturing the thermometer window
-        self.captureWindow =  self.incomingFrame[self.centroidY-self.windowSize:self.centroidY+self.windowSize, 
-                                                 self.centroidX-self.windowSize:self.centroidX+self.windowSize]
+        self.captureWindow =  self.incomingFrame[self.centroidY-self.windowSizeY:self.centroidY+self.windowSizeY, 
+                                                 self.centroidX-self.windowSizeX:self.centroidX+self.windowSizeX]
 
         # Draw a rectange around the window (for visualization / debugging)
-        cv2.rectangle(self.incomingFrame, (self.centroidX-self.windowSize, self.centroidY-self.windowSize), '
-                                          (self.centroidX+self.windowSize, self.centroidY+self.windowSize), (255, 255, 255), 1)                                                 
+        cv2.rectangle(self.incomingFrame, (self.centroidX-self.windowSizeX, self.centroidY-self.windowSizeY), 
+                                          (self.centroidX+self.windowSizeX, self.centroidY+self.windowSizeY), (255, 255, 255), 1)                                                 
         
         self.channels = cv2.mean(self.captureWindow)
         self.rgb_fix = np.array([(self.channels[2], self.channels[1], self.channels[0])])
 
         # self.color = self.incomingFrame[self.centroidX,self.centroidY]
-        print ( "R: " , int(self.channels[2]) , "\t G: " , int(self.channels[1]) , "\t B: " , int(self.channels[0]) ) 
+        self.RGBstring = "R: {:03d}   G: {:03d}   B: {:03d}   ".format(int(self.channels[2]), int(self.channels[1]) , int(self.channels[0]))
+        # print ( self.RGBstring  ) 
 
         # Check channel thresholds
-        if self.channels[1] > green _threshold:
-            print ( "GREEN DETECTED, TEMPERATURE OK!" )
+        if self.channels[1] > self.green_threshold:
+            print ( self.RGBstring , "\t GREEN DETECTED, TEMPERATURE OK!" )
             self.temperature_pub.publish("GREEN")
 
 
-        elif self.channels[2] > red_threshold:
-            print ( "RED DETECTED, YOU GONNA DIE!" )
+        elif self.channels[2] > self.red_threshold:
+            print ( self.RGBstring , "\t RED DETECTED, TEMPERATURE TOO HIGH!" )
             self.temperature_pub.publish("RED")
 
         else:
-            print ("No reading found")
+            print ( self.RGBstring , "\t Waiting for reading...!" )
             self.temperature_pub.publish("CLEAR")
 
         # Display the image on the screen
-        cv2.imshow("Image window", self.incomingFrame)
+        cv2.namedWindow("image", cv2.WINDOW_NORMAL)
+        cv2.imshow("image", self.incomingFrame)
         cv2.waitKey(1)
 
 
 def main(args):
-    read_temperature = ReadTemperature()
     rospy.init_node('read_temperature', anonymous=True)
+    read_temperature = ReadTemperature()
     try:
         rospy.spin()
     except KeyboardInterrupt:
