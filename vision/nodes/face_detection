@@ -12,7 +12,6 @@ from sensor_msgs import point_cloud2
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Pose, Point, TransformStamped, Vector3, Quaternion, Transform
 from image_geometry import PinholeCameraModel
-from tf.transformations import quaternion_from_euler
 
 class FaceDetection:
 
@@ -132,26 +131,27 @@ class FaceDetection:
                     i, j, k = p.projectPixelTo3dRay((self.forehead_x,
                                                     self.forehead_y))
 
-                    qbr = quaternion_from_euler(-0.02411003990034436, 0.015157312816261046, -1.5709156841120222)
-
                     Tbr = Transform(
                             translation=Vector3(            # TODO: get this from config file later
-                                x=-0.00021313403086664937,
-                                y=0.026511040266107982,
-                                z=1.5330730545276134),
+                                # x=-0.1472865747272882,
+                                # y=0.1497960282015105,
+                                # z=-0.1870116420679273),
+                                x=0.1,
+                                y=0, #0.03
+                                z=0.87), #0.15
                             rotation=Quaternion(
-                                # x=-0.013147972865170205,
-                                # y=0.013809048846600454,
-                                # z=-0.005702271764183202,
-                                # w=0.6967896267443657
-                                x=qbr[0],
-                                y=qbr[1],
-                                z=qbr[2],
-                                w=qbr[3]
+                                # x=0.08820884012981547,
+                                # y=0.047096118746598616,
+                                # z=0.994935424732234,
+                                # w=0.010230187429768183
+                                x=0,
+                                y=0,
+                                z=0,
+                                w=1
                             ))
                     Tbr_stamped = TransformStamped()
                     Tbr_stamped.header.stamp = rospy.Time.now()
-                    Tbr_stamped.header.frame_id = "head_camera"
+                    Tbr_stamped.header.frame_id = "world"
                     Tbr_stamped.child_frame_id = "camera_aligned_depth_to_color_frame"
                     Tbr_stamped.transform = Tbr
 
@@ -160,6 +160,9 @@ class FaceDetection:
                                 x=self.forehead_depth * k,
                                 y=self.forehead_depth * -i,
                                 z=self.forehead_depth * -j),
+                                # x=self.forehead_depth * i,
+                                # y=self.forehead_depth * j,
+                                # z=self.forehead_depth * k),
                             rotation=Quaternion(
                                 x=0,
                                 y=0,
