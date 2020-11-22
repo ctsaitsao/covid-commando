@@ -1,5 +1,4 @@
 <launch>
-
     <arg name="launch_rviz" default="True" doc="Option to launch RViz"/>
 
     <include file="$(find realsense2_camera)/launch/rs_camera.launch">
@@ -7,13 +6,7 @@
         <arg name="align_depth" value="true"/>
     </include>
 
-    <!-- <node name="image_proc" pkg="image_proc" type="image_proc">
-        <remap from="/image_raw" to="/camera/color/image_raw"/>
-        <remap from="/camera_info" to="/camera/color/camera_info"/>
-    </node> -->
-
     <node name="face_detection" pkg="vision" type="face_detection" output="screen"/>
 
     <node name="rviz" type="rviz" pkg="rviz" args="-d $(find vision)/config/face_detection.rviz" if="$(arg launch_rviz)"/>
-
 </launch>

@@ -1,0 +1,40 @@
+<launch>
+  <arg name="launch_rviz" default="true" doc="Option to launch RViz"/>
+  <arg name="camera" default="realsense" doc="Camera to use. Options: realsense, baxter_head"/>
+
+  <rosparam command="load" file="$(find vision)/config/settings.yaml" ns="apriltag_ros_continuous_node"/>
+  <rosparam command="load" file="$(find vision)/config/tags.yaml" ns="apriltag_ros_continuous_node"/>
+  
+  <group if="$(eval arg('camera') == 'realsense')">
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+      <arg name="filters" value="pointcloud"/>
+      <arg name="align_depth" value="true"/>
+    </include>
+  
+    <node name="apriltag_ros_continuous_node" pkg="apriltag_ros" type="apriltag_ros_continuous_node" clear_params="true" output="screen">
+      <remap from="image_rect" to="/camera/color/image_raw"/>
+      <remap from="camera_info" to="/camera/color/camera_info"/>
+      <param name="camera_frame" type="str" value="camera_aligned_depth_to_color_frame"/>
+      <param name="publish_tag_detections_image" type="bool" value="true"/>
+    </node>
+
+    <node name="rviz" type="rviz" pkg="rviz" args="-d $(find vision)/config/camera_calibration_realsense.rviz" if="$(arg launch_rviz)"/> 
+  </group>
+
+  <group if="$(eval arg('camera') == 'baxter_head')">
+  
+    <!-- Don't forget to open head camera first! -->
+    <node name="apriltag_ros_continuous_node" pkg="apriltag_ros" type="apriltag_ros_continuous_node" clear_params="true" output="screen">
+      <remap from="image_rect" to="/cameras/head_camera/image"/>
+      <remap from="camera_info" to="/cameras/head_camera/camera_info"/>
+      <param name="camera_frame" type="str" value="head_camera"/>
+      <param name="publish_tag_detections_image" type="bool" value="true"/> 
+    </node>
+
+    <node name="rviz" type="rviz" pkg="rviz" args="-d $(find vision)/config/camera_calibration_baxter_head.rviz" if="$(arg launch_rviz)"/> 
+  </group>
+
+  <node name="image_view" type="image_view" pkg="image_view">
+    <remap from="image" to="/tag_detections_image"/>
+  </node>
+</launch>

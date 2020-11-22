@@ -1,8 +1,19 @@
 <launch>
+<<<<<<< HEAD
     <!-- State machine node-->
     <node name="state_machine" pkg="state_machine" type="state_machine_node" output="screen"/>
     <!-- Motion node  -->
     <include file = "$(find motion)/launch/arm.launch"/>
     
 
+=======
+    
+    <!-- Vision Launch -->
+    <!-- <include file = "$(find vision)/launch/face_detection.launch"/> -->
+    <!-- Motion Launch  -->
+    <include file = "$(find motion)/launch/arm.launch"/>
+    
+    <!-- State machine node-->
+    <node name="state_machine" pkg="state_machine" type="state_machine_node" output="screen"/>
+>>>>>>> 38647574069ca1c3c577746134f487d9d0eae8da
 </launch>

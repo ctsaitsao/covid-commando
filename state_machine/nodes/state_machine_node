@@ -15,16 +15,19 @@ from sensor_msgs.msg import (
     Image,
 )
 from std_srvs.srv import Empty,EmptyRequest,EmptyResponse
+from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse
 
 class StateMachine:
     """ Decides what state robot is in. """
     def __init__(self):
         # Service proxies 
         ## Wait for services to be started 
-        rospy.wait_for_service('Step',timeout=5)
-        rospy.wait_for_service('Reset',timeout=5)
-        self.motion_step_srv = rospy.ServiceProxy('Step',Step)
-        self.motion_reset_srv = rospy.ServiceProxy('Reset',Empty)
+        rospy.wait_for_service('/reset')
+        rospy.wait_for_service('/get_pose')
+        rospy.wait_for_service('/go_to_pose')
+        self.motion_reset_srv = rospy.ServiceProxy('/reset',Empty)
+        self.motion_getPose_srv = rospy.ServiceProxy('/get_pose',GetPose)
+        self.motion_goToPose_srv = rospy.ServiceProxy('/go_to_pose',GoToPose)
 
         # State publisher 
         self.state_pub = rospy.Publisher('state', String, queue_size=10)
@@ -51,7 +54,7 @@ class StateMachine:
         self.images_dir = str(Path(os.path.realpath(__file__)).parents[1])+'/images/'
         self.update_screen()
         ## Robot should be in search_for_face pose
-
+        self.motion_reset_srv.call()
     
         # Timer callback 
         self.timer = rospy.Timer(rospy.Duration(1/self.rate), self.timer_callback)
@@ -102,12 +105,14 @@ class StateMachine:
         """
         self.state_pub.publish(self.state)
         if self.state != self.prev_state:
-            # Update Baxter screen
             
             if self.state == 'search_for_face':
                 self.update_screen()
                 # Go to search_for_face pose and wait for face to be found 
-                # Vision node sets state to move_to_face
+                """
+                    Vision node will be publishing on 'face_pose'
+                    If the distance is less than 3m, do not go to 'move_to_face'
+                """
                 pass 
 
             elif self.state == 'move_to_face':
