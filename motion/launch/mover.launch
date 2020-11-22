@@ -17,6 +17,7 @@
     <node name="mover" pkg="motion" type="mover" output="screen">
         <remap from="/joint_states" to="/robot/joint_states" />
 <<<<<<< HEAD:motion/launch/mover.launch
+<<<<<<< HEAD:motion/launch/mover.launch
         <!-- <rosparam param="move_group/trajectory_execution/execution_velocity_scaling">
             2.0
         </rosparam> -->
@@ -25,6 +26,11 @@
             2.0
         </rosparam>
 >>>>>>> Updated state_machine and motion:motion/launch/arm.launch
+=======
+        <!-- <rosparam param="move_group/trajectory_execution/execution_velocity_scaling">
+            2.0
+        </rosparam> -->
+>>>>>>> Updated motion package:motion/launch/arm.launch
     </node>
 
     
