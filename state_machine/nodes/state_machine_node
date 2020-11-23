@@ -2,6 +2,7 @@
 
 import os 
 from pathlib import Path
+import numpy as np
 import cv2
 import cv_bridge
 
@@ -81,12 +82,21 @@ class StateMachine:
         self.display_pub.publish(msg)
         # rospy.sleep(1)
     
-    def update_screen_temp(self,temp):
-        if temp.data == 'GREEN':
+    def update_screen_temp(self, temp, temp_level):
+        print("Temp screen update")
+        if temp_level.data == 'GREEN':
             path = self.images_dir + 'temp_normal.png' # temp_high.png or temp_normal.png
-        elif temp.data == 'RED':
+        elif temp_level.data == 'RED':
             path = self.images_dir + 'temp_high.png'
-        img = cv2.imread(path)
+        else:
+            path = self.images_dir + 'temp_normal.png' # temp_high.png or temp_normal.png
+        base_image = cv2.imread(path)
+        outputString = temp.data + "C"
+        # outputString = "36.9" + "C"
+        cv2.putText(base_image, outputString , (300, 490), cv2.FONT_HERSHEY_DUPLEX, 5.0, (0, 0, 0), 4)
+        cv2.imwrite(self.images_dir + 'temp.png',base_image)
+
+        img = cv2.imread(self.images_dir + 'temp.png')
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
         self.display_pub.publish(msg)
         # rospy.sleep(1)
@@ -175,14 +185,18 @@ class StateMachine:
                 # Update screen as either high or low temp
                 # Vision node sets state to display_result
                 """
-                    Update topic when vision node is done 
+                    Update /digit_reading to latch publisher??
                 """
-                temp = rospy.wait_for_message('/temperature_reading', String)
-                self.update_screen_temp(temp)
+                temp_level = rospy.wait_for_message('/temperature_reading', String)
+                temp = rospy.wait_for_message('/digit_reading',String)
+                print(temp_level.data, temp.data)
+                self.update_screen_temp(temp, temp_level)
+                # self.update_screen_temp()
                 # Wait for 10s or some user action, then return to search_for_face
                 rospy.sleep(5)
                 # self.reset()
                 self.prev_state = self.state
+                print("State machine end")
                 # self.state = 'search_for_face'
                 # self.face_pose = None
             else:

@@ -4,4 +4,6 @@
 
     <node name="read_temperature" pkg="vision" type="read_temperature" output="screen"/>
 
+    <node name="read_digit" pkg="vision" type="read_digit" output="screen"/>
+
 </launch>

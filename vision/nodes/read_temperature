@@ -119,8 +119,8 @@ class ReadTemperature:
                                                  self.centroidX-self.windowSizeX:self.centroidX+self.windowSizeX]
 
         # Draw a rectange around the window (for visualization / debugging)
-        cv2.rectangle(self.incomingFrame, (self.centroidX-self.windowSizeX, self.centroidY-self.windowSizeY), 
-                                          (self.centroidX+self.windowSizeX, self.centroidY+self.windowSizeY), (255, 255, 255), 1)                                                 
+        # cv2.rectangle(self.incomingFrame, (self.centroidX-self.windowSizeX, self.centroidY-self.windowSizeY), 
+        #                                   (self.centroidX+self.windowSizeX, self.centroidY+self.windowSizeY), (255, 255, 255), 1)                                                 
         
         self.channels = cv2.mean(self.captureWindow)
         self.rgb_fix = np.array([(self.channels[2], self.channels[1], self.channels[0])])

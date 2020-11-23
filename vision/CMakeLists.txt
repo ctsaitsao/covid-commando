@@ -165,6 +165,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   nodes/face_detection
   nodes/read_temperature
+  nodes/read_digit
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
