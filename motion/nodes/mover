@@ -429,6 +429,7 @@ class Mover(object):
 
         self.right_arm_group.stop()
         self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
+        return EmptyResponse()
 
 ####
 
