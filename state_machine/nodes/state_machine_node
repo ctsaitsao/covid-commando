@@ -10,10 +10,8 @@ import rospy
 from std_msgs.msg import String
 from geometry_msgs.msg import Pose
 from state_machine.srv import SetState, SetStateResponse
-from sensor_msgs.msg import (
-    Image,
-)
-from std_srvs.srv import Empty,EmptyRequest,EmptyResponse
+from sensor_msgs.msg import Image
+from std_srvs.srv import Empty, EmptyRequest, EmptyResponse, Trigger
 from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse
 
 class StateMachine:
@@ -24,9 +22,11 @@ class StateMachine:
         rospy.wait_for_service('/reset')
         rospy.wait_for_service('/get_pose')
         rospy.wait_for_service('/go_to_pose')
-        self.motion_reset_srv = rospy.ServiceProxy('/reset', Empty)
-        self.motion_getPose_srv = rospy.ServiceProxy('/get_pose', GetPose)
-        self.motion_goToPose_srv = rospy.ServiceProxy('/go_to_pose', GoToPose)
+        rospy.wait_for_service('/blink_arm_light')
+        self.reset = rospy.ServiceProxy('/reset', Empty)
+        # self.get_pose = rospy.ServiceProxy('/get_pose', GetPose)
+        self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
+        self.blink = rospy.ServiceProxy('/blink_arm_light', Trigger)
 
         # State publisher 
         self.state_pub = rospy.Publisher('/state', String, queue_size=10)
@@ -39,6 +39,7 @@ class StateMachine:
         # Face pose subscriber
         self.face_pose_sub = rospy.Subscriber('/face_pose', Pose, self.face_pose_callback)
         self.face_pose = None
+        # self.pause_face_pose = False
 
         # Display publisher 
         self.display_pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
@@ -51,7 +52,7 @@ class StateMachine:
         self.images_dir = str(Path(os.path.realpath(__file__)).parents[1])+'/images/'
         self.update_screen()
         ## Robot should be in search_for_face pose
-        # self.motion_reset_srv()
+        # self.reset()
     
         # Timer callback 
         self.timer = rospy.Timer(rospy.Duration(1/self.rate), self.timer_callback)
@@ -74,14 +75,17 @@ class StateMachine:
         img = cv2.imread(path)
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
         self.display_pub.publish(msg)
-        rospy.sleep(1)
+        # rospy.sleep(1)
     
     def update_screen_temp(self,temp):
-        path = self.images_dir + 'temp_' + temp + '.png' # temp_high.png or temp_normal.png
+        if temp.data == 'GREEN':
+            path = self.images_dir + 'temp_normal.png' # temp_high.png or temp_normal.png
+        elif temp.data == 'RED':
+            path = self.images_dir + 'temp_high.png'
         img = cv2.imread(path)
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
         self.display_pub.publish(msg)
-        rospy.sleep(1)
+        # rospy.sleep(1)
     
     def set_lights(self):
         # Turns on light for 10s 
@@ -90,6 +94,7 @@ class StateMachine:
         self.light_control.set_output(False)
 
     def face_pose_callback(self, data):
+        # if not self.pause_face_pose:
         self.face_pose = data
 
     def timer_callback(self,event):
@@ -112,6 +117,7 @@ class StateMachine:
 
             if self.state == 'move_to_face':
                 self.update_screen()
+                # self.pause_face_pose = True
                 # When a face is found, vision node will set state to move_to_face
                 # Call motion Step service to move to face pose 
                 """
@@ -119,29 +125,36 @@ class StateMachine:
                 """
                 # face_pose = rospy.wait_for_message('face_pose',Pose,timeout=1.5)
 
-                self.motion_goToPose_srv(x=self.face_pose.position.x - 0.1,
-                                         y=self.face_pose.position.y,
-                                         z=self.face_pose.position.z,
-                                         r=0.26,
-                                         p=-1.5,
-                                         yaw=2.91)
+                res = self.go_to_pose(x=self.face_pose.position.x - 0.1,
+                                               y=self.face_pose.position.y,
+                                               z=self.face_pose.position.z,
+                                               r=0.26,
+                                               p=-1.5,
+                                               yaw=2.91)
+                # self.state = 'search_for_face'
+                # self.pause_face_pose = False
+                # self.face_pose = None 
 
-                self.state = 'take_temperature'
+                self.prev_state = self.state
+
+                self.state = 'take_temperature' if res.success else 'search_for_face'
 
             elif self.state == 'take_temperature':
                 self.update_screen()
-                # Light up arm LED to take temperature
-                self.set_lights()
-                # Go to check_temperature state when temperature taking is done 
-                self.motion_reset_srv.call()
-                self.state = 'check_temperature'
+                
+                self.blink()
+
+                self.prev_state = self.state
+
+                self.state = 'display_result'
+
                 pass
 
-            elif self.state == 'check_temperature':
-                self.update_screen()
-                # Waits for vision node to complete checking temperature
-                # Vision node sets state to display_result
-                pass
+            # elif self.state == 'check_temperature':
+            #     # self.update_screen()
+            #     # Waits for vision node to complete checking temperature
+            #     # Vision node sets state to display_result
+            #     pass
 
             elif self.state == 'display_result':
                 # Update screen as either high or low temp
@@ -149,17 +162,16 @@ class StateMachine:
                 """
                     Update topic when vision node is done 
                 """
-                temp = rospy.wait_for_message('Temperature',String)
+                temp = rospy.wait_for_message('/temperature_reading', String)
                 self.update_screen_temp(temp)
                 # Wait for 10s or some user action, then return to search_for_face
-                rospy.sleep(10)
-                self.state = 'search_for_face'
-                pass 
-            
+                rospy.sleep(5)
+                # self.reset()
+                self.prev_state = self.state
+                # self.state = 'search_for_face'
+                # self.face_pose = None
             else:
                 pass 
-
-            self.prev_state = self.state
 
 def main():
     """ The main() function. """

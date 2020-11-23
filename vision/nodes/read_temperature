@@ -10,8 +10,9 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Pose
+from std_srvs.srv import Trigger, Empty
 
-# import baxter_interface.digital_io as DIO
+import baxter_interface.digital_io as DIO
 
 
 """
@@ -34,8 +35,8 @@ class ReadTemperature:
         # CENTROIDS NEED TO BE UPDATED FOR BAXTER HAND CAMERA
         # Image max 320x200
         # Values for mounted camera: 230, 165, 40, 25
-        self.centroidX   = 230
-        self.centroidY   = 50 
+        self.centroidX   = 720
+        self.centroidY   = 410     # TODO: read from config
         self.windowSizeX = 25
         self.windowSizeY = 25
         
@@ -51,45 +52,44 @@ class ReadTemperature:
         self.image_sub = rospy.Subscriber('/cameras/right_hand_camera/image',
                                                  Image,
                                                  self.image_callback)
-        self.state_sub = rospy.Subscriber('state', String, self.state_callback)
-        self.temperature_pub = rospy.Publisher('temperature_reading', String, queue_size=10)
+        self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
+        self.temperature_pub = rospy.Publisher('/temperature_reading', String, queue_size=10)
 
         self.state = None
 
         # SERVICE FOR DEBUGGING, SEND A FAKE IO LIGHT TO THE ARM
-        # self.blink = rospy.Service("blink_arm_light", Trigger, self.blinkCallback )
+        self.blink = rospy.Service("/blink_arm_light", Trigger, self.blinkCallback )
+
+        self.reset = rospy.ServiceProxy('/reset', Empty)
 
 
-    # def blinkCallback(self, data):
-    #     """
-    #     Blinks a Digital Output on then off.
-    #     Taken from baxter_examples/scripts/digital_io_blink.py
-    #     """
+    def blinkCallback(self, data):
+        """
+        Blinks a Digital Output on then off.
+        Taken from baxter_examples/scripts/digital_io_blink.py
+        """
 
-    #     self.io_component = "right_outer_light"
+        self.io_component = "right_outer_light"
 
-    #     rospy.loginfo("Blinking Digital Output: %s", self.io_component)
-    #     self.light = DIO.DigitalIO(self.io_component)
+        rospy.loginfo("Blinking Digital Output: %s", self.io_component)
+        self.light = DIO.DigitalIO(self.io_component)
 
-    #     print("Initial state: ", self.light.state)
+        print("Initial state: ", self.light.state)
 
-    #     # turn on light
-    #     self.light.set_output(True)
-    #     rospy.sleep(2)
-    #     print("New state: ", self.light.state)
+        # turn on light
+        self.light.set_output(True)
+        rospy.sleep(2)
+        print("New state: ", self.light.state)
 
-    #     # reset output
-    #     self.light.set_output(False)
-    #     rospy.sleep(1)
-    #     print("Final state:", self.light.state)
+        # reset output
+        self.light.set_output(False)
+        rospy.sleep(1)
+        print("Final state:", self.light.state)
         
-    #     self.success = True
-    #     self.message = "Sending blink command"
+        self.success = True
+        self.message = "Sending blink command"
             
-    #     return self.success, self.message
-
-
- 
+        return self.success, self.message
 
     def state_callback(self, data):
         """ Used as the 'state' callback.
@@ -131,19 +131,19 @@ class ReadTemperature:
 
         # Check channel thresholds
         if self.channels[1] > self.green_threshold:
-            print ( self.RGBstring , "\t GREEN DETECTED, TEMPERATURE OK!" )
+            # print ( self.RGBstring , "\t GREEN DETECTED, TEMPERATURE OK!" )
             self.temperature_pub.publish("GREEN")
 
 
         elif self.channels[2] > self.red_threshold:
-            print ( self.RGBstring , "\t RED DETECTED, TEMPERATURE TOO HIGH!" )
+            # print ( self.RGBstring , "\t RED DETECTED, TEMPERATURE TOO HIGH!" )
             self.temperature_pub.publish("RED")
 
         else:
-            print ( self.RGBstring , "\t Waiting for reading...!" )
+            # print ( self.RGBstring , "\t Waiting for reading...!" )
             self.temperature_pub.publish("CLEAR")
 
-        # Display the image on the screen
+        # # Display the image on the screen
         cv2.namedWindow("image", cv2.WINDOW_NORMAL)
         cv2.imshow("image", self.incomingFrame)
         cv2.waitKey(1)

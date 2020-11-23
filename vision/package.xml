@@ -59,6 +59,7 @@
   <depend>cv_bridge</depend>
   <depend>sensor_msgs</depend>
   <depend>image_geometry</depend>
+  <depend>std_srvs</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

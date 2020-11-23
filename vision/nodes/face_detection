@@ -197,7 +197,7 @@ class FaceDetection:
                         y=Twf.transform.translation.y,
                         z=Twf.transform.translation.z)))
 
-                    print(Twf)
+                    # print(Twf)
 
                     # Twf = self.tf_listener.lookupTransform('/face', '/world', rospy.Time(0))
 

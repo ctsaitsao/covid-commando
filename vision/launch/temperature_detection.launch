@@ -1,6 +1,6 @@
 <launch>
 
-	<node pkg="baxter_tools" type="camera_control.py" name="camera_con" args="-o right_hand_camera -r 320x200"/>
+	<node pkg="baxter_tools" type="camera_control.py" name="camera_con" args="-o right_hand_camera -r 1280x800"/>
 
     <node name="read_temperature" pkg="vision" type="read_temperature" output="screen"/>
 
