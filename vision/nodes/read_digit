@@ -1,0 +1,214 @@
+
+#!/usr/bin/env python
+#https://www.pyimagesearch.com/2017/02/13/recognizing-digits-with-opencv-and-python/
+
+import cv2
+import numpy
+import rospy
+from cv_bridge import CvBridge, CvBridgeError
+from imutils.perspective import four_point_transform
+from imutils import contours
+import imutils
+
+# define the dictionary of digit segments so we can identify
+# each digit on the thermostat
+DIGITS_LOOKUP = {
+	(1, 1, 1, 0, 1, 1, 1): 0,
+	(0, 0, 1, 0, 0, 1, 0): 1,
+	(1, 0, 1, 1, 1, 1, 0): 2,
+	(1, 0, 1, 1, 0, 1, 1): 3,
+	(0, 1, 1, 1, 0, 1, 0): 4,
+	(1, 1, 0, 1, 0, 1, 1): 5,
+	(1, 1, 0, 1, 1, 1, 1): 6,
+	(1, 0, 1, 0, 0, 1, 0): 7,
+	(1, 1, 1, 1, 1, 1, 1): 8,
+	(1, 1, 1, 1, 0, 1, 1): 9,
+}
+
+
+
+"""
+input 4 corners
+crop and select ROI -> captureWindow
+scale to easier value (100 tall x 150w)
+process (bw)
+build ROI matrix (top to bottom, left to right, seg0 to seg6)
+"""
+
+class ReadDigits:
+	
+	def __init__(self):
+
+		# Load sample image
+		image = cv2.imread("raw_image.jpeg")
+
+		current_image = image 
+
+		# DEFINE THE CAPTURE WINDOW
+		ROIx = 855
+		ROIy = 470
+		ROIw = 920-ROIx
+		ROIh = 510-ROIy
+
+		# Initialize subscriber, reading a ROS Image message type
+        # (the topic will be published by the RealSense or the rosbag capture)
+        self.image_sub = rospy.Subscriber('/cameras/right_hand_camera/image',
+                                                 Image,
+                                                 self.image_callback)
+        self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
+        self.digit_pub = rospy.Publisher('/digit_reading', String, queue_size=10)
+
+        self.state = None
+
+  		# Initialize CvBridge object, which allows conversion between ROS message
+        # and OpenCV Image data type
+        self.bridge = CvBridge()
+		
+
+	def state_callback(self, data):
+        """ Used as the 'state' callback.
+
+            Args:
+               data (std_msgs/String): the current state
+        """
+        self.state = data.data
+
+    def image_callback(self, data):
+        """
+        Callback for image subscriber
+        """	
+
+
+
+	def findDigits(self):
+
+
+	captureWindow = current_image[ROIy:ROIy+ROIh, ROIx:ROIx+ROIw]
+
+	captureWindow = cv2.rotate(captureWindow,cv2.ROTATE_180)
+
+	cv2.rectangle ( current_image , (ROIx,ROIy),(ROIx+ROIw,ROIy+ROIh),(0,0,255,1))
+
+
+	# # Pre-processing
+	captureWindow = imutils.resize(captureWindow, height=100)
+	captureWindow = cv2.cvtColor(captureWindow, cv2.COLOR_BGR2GRAY)
+
+	captureWindow = captureWindow * 2
+	captureWindow = cv2.threshold(captureWindow, 200 , 255 , cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1] 
+
+	# Fixed pixel values
+	x = 10
+
+	SEGMENTS_1 = {
+		0: [    x ,  0 , 30 , 10 ],
+		1: [    0 , 10 , 10 , 40 ],
+		2: [ x+30 , 10 , 10 , 40 ],
+		3: [    x , 40 , 30 , 15 ],
+		4: [    0 , 55 , 10 , 40 ],
+		5: [ x+30 , 55 , 10 , 40 ],
+		6: [    x , 90 , 30 , 10 ] 
+	}
+
+	SEGMENTS_2 = {
+		0: [ x+60 ,  0 , 30 , 10 ],
+		1: [ x+55 , 10 , 10 , 40 ],
+		2: [ x+90 , 10 , 10 , 40 ],
+		3: [ x+60 , 40 , 30 , 15 ],
+		4: [ x+50 , 55 , 10 , 40 ],
+		5: [ x+80 , 55 , 10 , 40 ],
+		6: [ x+55 , 90 , 30 , 10 ] 
+	}
+
+	SEGMENTS_3 = {
+		0: [ x+115 ,  0 , 30 , 10 ],
+		1: [ x+110 , 10 , 10 , 40 ],
+		2: [ x+140 , 10 , 10 , 40 ],
+		3: [ x+115 , 40 , 30 , 15 ],
+		4: [ x+110 , 55 , 10 , 40 ],
+		5: [ x+140 , 55 , 10 , 40 ],
+		6: [ x+115 , 90 , 30 , 10 ] 
+	}
+
+	#Highlight ROI segments for each digit
+	for i in range (7) :
+		cv2.rectangle ( captureWindow , SEGMENTS_1[i],(100,100,255,2))
+
+	for j in range (7) :
+		cv2.rectangle ( captureWindow , SEGMENTS_2[j],(100,100,255,2))
+
+	for k in range (7) :
+		cv2.rectangle ( captureWindow , SEGMENTS_3[k],(100,100,255,2))
+
+	lookup_digit_1 = [0,0,0,0,0,0,0]
+	lookup_digit_2 = [0,0,0,0,0,0,0]
+	lookup_digit_3 = [0,0,0,0,0,0,0]
+
+	# Check for lit segment over the 3 digits
+	for d in range(7):
+		currentSegment = SEGMENTS_1[d]
+		# print ( currentSegment ) 
+		roi = captureWindow[currentSegment[1]:currentSegment[1]+currentSegment[3], currentSegment[0]:currentSegment[0]+currentSegment[2]]
+
+		segmentMean = cv2.mean(roi)
+
+		if segmentMean[0] > 100:
+			lookup_digit_1[d] = 1
+		else:
+			lookup_digit_1[d] = 0 
+		# print ( segmentMean )
+
+	for d in range(7):
+		currentSegment = SEGMENTS_2[d]
+		# print ( currentSegment ) 
+		roi = captureWindow[currentSegment[1]:currentSegment[1]+currentSegment[3], currentSegment[0]:currentSegment[0]+currentSegment[2]]
+
+		segmentMean = cv2.mean(roi)
+
+		if segmentMean[0] > 100:
+			lookup_digit_2[d] = 1
+		else:
+			lookup_digit_2[d] = 0 
+		# print ( segmentMean )
+
+	for d in range(7):
+		currentSegment = SEGMENTS_3[d]
+		# print ( currentSegment ) 
+		roi = captureWindow[currentSegment[1]:currentSegment[1]+currentSegment[3], currentSegment[0]:currentSegment[0]+currentSegment[2]]
+
+		segmentMean = cv2.mean(roi)
+
+		if segmentMean[0] > 100:
+			lookup_digit_3[d] = 1
+		else:
+			lookup_digit_3[d] = 0 
+		# print ( segmentMean )
+
+
+	# Find the number on the lookup table
+	digit1 = str(DIGITS_LOOKUP[tuple(lookup_digit_1)])
+	digit2 = str(DIGITS_LOOKUP[tuple(lookup_digit_2)])
+	digit3 = str(DIGITS_LOOKUP[tuple(lookup_digit_3)])
+
+	# Create result string
+	outputString = ( digit1 + digit2 + "." + digit3  ) 
+	print ( outputString )
+
+	# Output results
+	cv2.imshow("input", current_image)
+	cv2.imshow("output", captureWindow)
+
+	cv2.waitKey(0)
+
+def main(args):
+    rospy.init_node('read_digits', anonymous=True)
+    read_digits = ReadDigits()
+    try:
+        rospy.spin()
+    except KeyboardInterrupt:
+        print("Shutting down")
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main(sys.argv)
