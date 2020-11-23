@@ -17,7 +17,7 @@ from sensor_msgs.msg import JointState
 
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
-cyan = '\033[96m'
+CYAN = '\033[96m'
 
 class Mover(object):
     def __init__(self):
@@ -63,7 +63,7 @@ class Mover(object):
         # self.planning_frame_right = 'head_camera'
         
         # Make right arm to go neutral position
-        print(f"{cyan}Going to neutral pose...") 
+        print(f"{CYAN}Going to neutral pose...") 
         
         self.reset()
 
@@ -271,7 +271,7 @@ class Mover(object):
 
         # Plan target pose
         plan, fraction = planning(target_pose)
-        print(f"{cyan} First Plan: {fraction} ")
+        print(f"{CYAN} First Plan: {fraction} ")
         
 
         if fraction<0.90:
@@ -291,15 +291,15 @@ class Mover(object):
             # self.right_arm_limb.move_to_neutral()
 
             plan, fraction = planning(target_pose)
-            print(f"{cyan}\n Second Plan:{fraction}")
-            print(f"{cyan}First attempt to target pose\n")
+            print(f"{CYAN}\n Second Plan:{fraction}")
+            print(f"{CYAN}First attempt to target pose\n")
             self.right_arm_group.execute(plan)
             # self.right_arm_group.execute(plan, wait=True)  # TODO
             self.right_arm_group.stop()
 
         else:
-            print(f"{cyan}\nTrajectory Planned:{fraction}")
-            print(f"{cyan}First attempt to target pose\n")
+            print(f"{CYAN}\nTrajectory Planned:{fraction}")
+            print(f"{CYAN}First attempt to target pose\n")
             self.right_arm_group.execute(plan)
             # self.right_arm_group.execute(plan, wait=True)  # TODO
             self.right_arm_group.stop()
@@ -315,17 +315,17 @@ class Mover(object):
         #     while dist>0.3:
         #         rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
         #         dist = rand_to_target_dist(rand_pose,target_pose)
-        #         print(f"{cyan}\nRand-Target Dist: {dist}, Tries: {tries}")
+        #         print(f"{CYAN}\nRand-Target Dist: {dist}, Tries: {tries}")
         #         tries += 1
-        #     print(f"{cyan}\nRand-Target Dist: {dist}")
+        #     print(f"{CYAN}\nRand-Target Dist: {dist}")
         #     # Go to random pose
         #     rand_plan, rand_fraction = planning(rand_pose)
-        #     print(f"{cyan}Going to random pose, traj fraction: {rand_fraction}\n")
+        #     print(f"{CYAN}Going to random pose, traj fraction: {rand_fraction}\n")
         #     self.right_arm_group.execute(rand_plan)
         #     self.right_arm_group.stop()
         #     # Go to target pose
         #     plan, fraction = planning (target_pose)
-        #     print(f"{cyan}\nGoing to target pose, traj fraction: {fraction}\n")
+        #     print(f"{CYAN}\nGoing to target pose, traj fraction: {fraction}\n")
         #     self.right_arm_group.execute(plan)
         #     self.right_arm_group.stop()
                  
@@ -346,7 +346,7 @@ class Mover(object):
                             pose.position.z])
             return point 
         def point_from_saved_pose(saved_pose):
-            print(f"{cyan}point_from_saved_pose")
+            print(f"{CYAN}point_from_saved_pose")
             saved_pose = saved_pose[list(saved_pose.keys())[0]]
             point = np.array([saved_pose["p.x"],
                             saved_pose["p.y"],
@@ -357,15 +357,15 @@ class Mover(object):
             closest = None
             for i,saved_pose in enumerate(saved_poses):
                 saved_point = point_from_saved_pose(saved_pose)
-                print(f"{cyan}saved_point")
+                print(f"{CYAN}saved_point")
                 target_point = point_from_pose(target_pose)
-                print(f"{cyan}target_point")
+                print(f"{CYAN}target_point")
                 dist = np.linalg.norm(target_point - saved_point)
                 if min_dist>dist:
                     min_dist = dist
                     closest = saved_pose
             closest = closest[list(closest.keys())[0]]
-            print(f"{cyan}{closest}")
+            print(f"{CYAN}{closest}")
             closest_pose = Pose()
             closest_pose.position.x = closest["p.x"]
             closest_pose.position.y = closest["p.y"]
@@ -376,9 +376,9 @@ class Mover(object):
             return closest_pose         
         
         # Cartesian to saved pose
-        print(f"{cyan}Going to closest saved pose")
+        print(f"{CYAN}Going to closest saved pose")
         closest_pose = closest_saved_pose(target_pose)
-        print(f"{cyan}closest_found")
+        print(f"{CYAN}closest_found")
         self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
         success, traj, _, errCode = self.right_arm_group.plan()
         self.right_arm_group.execute(traj)
@@ -390,7 +390,7 @@ class Mover(object):
         # self.right_arm_group.stop()
 
         # Go to target pose 
-        print(f"{cyan}Going to target pose")
+        print(f"{CYAN}Going to target pose")
         self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
         success, traj, _, errCode = self.right_arm_group.plan()
         self.right_arm_group.execute(traj)
@@ -499,7 +499,7 @@ class Mover(object):
         return EmptyResponse()
     
     def go_to_pose_callback(self, req):
-        print(f"{cyan} Go to pose called!")
+        print(f"{CYAN} Go to pose called!")
         """
         Callback funtion for the go_to_pose service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
         Args:
@@ -545,7 +545,7 @@ class Mover(object):
         # self.right_arm_group.stop()
 
         # self.move_to_pose_decoupled(pose_goal.pose)
-        print(f"{cyan}x:{pose_goal.pose.position.x},y:{pose_goal.pose.position.y}")
+        print(f"{CYAN}x:{pose_goal.pose.position.x},y:{pose_goal.pose.position.y}")
         fraction = self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
         
         return GoToPoseResponse(success=fraction > 0.50)

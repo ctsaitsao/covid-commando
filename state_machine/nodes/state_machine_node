@@ -7,7 +7,7 @@ import cv_bridge
 
 import baxter_interface.digital_io as DIO
 import rospy
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from geometry_msgs.msg import Pose
 from state_machine.srv import SetState, SetStateResponse
 from sensor_msgs.msg import Image
@@ -40,6 +40,10 @@ class StateMachine:
         self.face_pose_sub = rospy.Subscriber('/face_pose', Pose, self.face_pose_callback)
         self.face_pose = None
         # self.pause_face_pose = False
+
+        # Found face subscriber
+        self.found_face_sub = rospy.Subscriber('/found_face', Bool, self.found_face_callback)
+        self.found_face = False
 
         # Display publisher 
         self.display_pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
@@ -97,6 +101,10 @@ class StateMachine:
         # if not self.pause_face_pose:
         self.face_pose = data
 
+    def found_face_callback(self, data):
+        # if not self.pause_face_pose:
+        self.found_face = data.data
+
     def timer_callback(self,event):
         """
             Timer callback to publish state
@@ -104,12 +112,19 @@ class StateMachine:
         self.state_pub.publish(self.state)
 
         if self.state == 'search_for_face':
-            self.update_screen()
             # Go to search_for_face pose and wait for face to be found 
             """
                 Vision node will be publishing on 'face_pose'
                 If the distance is less than 3m, do not go to 'move_to_face'
             """
+            if self.found_face:
+                path = self.images_dir + 'face_found.png'
+                img = cv2.imread(path)
+                msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
+                self.display_pub.publish(msg)
+            else:
+                self.update_screen()
+
             if self.face_pose:
                 self.state = 'move_to_face'
 
