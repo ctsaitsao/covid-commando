@@ -24,7 +24,8 @@ class StateMachine:
         rospy.wait_for_service('/get_pose')
         rospy.wait_for_service('/go_to_pose')
         rospy.wait_for_service('/blink_arm_light')
-        self.reset = rospy.ServiceProxy('/reset', Empty)
+        rospy.wait_for_service('/go_to_joint_angle')
+        self.go_to_neutral = rospy.ServiceProxy('/go_to_joint_angle', Empty)
         # self.get_pose = rospy.ServiceProxy('/get_pose', GetPose)
         self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
         self.blink = rospy.ServiceProxy('/blink_arm_light', Trigger)
@@ -194,7 +195,7 @@ class StateMachine:
                 # self.update_screen_temp()
                 # Wait for 10s or some user action, then return to search_for_face
                 rospy.sleep(5)
-                # self.reset()
+                self.go_to_neutral()
                 self.prev_state = self.state
                 print("State machine end")
                 # self.state = 'search_for_face'
