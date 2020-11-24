@@ -16,6 +16,9 @@
     <!-- Start Moveit node -->
     <node name="mover" pkg="motion" type="mover" output="screen">
         <remap from="/joint_states" to="/robot/joint_states" />
+        <rosparam param="move_group/trajectory_execution/execution_velocity_scaling">
+            2.0
+        </rosparam>
     </node>
 
     
