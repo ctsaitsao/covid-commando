@@ -2,6 +2,7 @@
 
 """
     Inverse Kinematics for Baxter end effector using moveit package 
+    
 """
 import sys
 import numpy as np 
@@ -425,9 +426,14 @@ class Mover(object):
         joint_target_pose[5] =  1.26        #-0.6312330942148477
         joint_target_pose[6] =  0.0         #2.6599226861933074
         
-        self.right_arm_group.go(joint_target_pose, wait=True)
+        self.right_arm_group.set_joint_value_target(joint_target_pose)
+        success, traj, _, errCode = self.right_arm_group.plan()
+        ref = self.right_arm_group.get_current_pose()
+        traj = self.right_arm_group.retime_trajectory(ref,traj)
+        self.right_arm_group.execute(traj)
 
-        self.right_arm_group.stop()
+        # self.right_arm_group.go(joint_target_pose, wait=True)
+        # self.right_arm_group.stop()
         self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
 
 ####
