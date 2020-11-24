@@ -35,10 +35,10 @@ class ReadTemperature:
         # CENTROIDS NEED TO BE UPDATED FOR BAXTER HAND CAMERA
         # Image max 320x200
         # Values for mounted camera: 230, 165, 40, 25
-        self.centroidX   = 720
-        self.centroidY   = 410     # TODO: read from config
-        self.windowSizeX = 25
-        self.windowSizeY = 25
+        self.centroidX   = rospy.get_param('/centroidX')
+        self.centroidY   = rospy.get_param('/centroidY')
+        self.windowSizeX = rospy.get_param('/windowSizeX')
+        self.windowSizeY = rospy.get_param('/windowSizeY')
         
         self.red_threshold   = 200
         self.green_threshold = 200

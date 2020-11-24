@@ -50,10 +50,10 @@ class ReadDigits:
         current_image = image
 
         # DEFINE THE CAPTURE WINDOW
-        self.ROIx = 683
-        self.ROIy = 368
-        self.ROIw = 50
-        self.ROIh = 31
+        self.ROIx = rospy.get_param('/ROIx')
+        self.ROIy = rospy.get_param('/ROIy')
+        self.ROIw = rospy.get_param('/ROIw')
+        self.ROIh = rospy.get_param('/ROIh')
 
         # Initialize subscriber, reading a ROS Image message type
         # (the topic will be published by the RealSense or the rosbag capture)
@@ -67,6 +67,8 @@ class ReadDigits:
         self.bridge = CvBridge()
 
         self.done = False
+
+        self.threshold = 65
 
 
     def state_callback(self, data):
@@ -85,6 +87,8 @@ class ReadDigits:
 
 
     def findDigits(self, img):
+
+        print('came into findDigits')
 
         # Attempt to pull frame from ROS message
         try:
@@ -120,7 +124,7 @@ class ReadDigits:
             0: [    x ,  0 , 30 , 10 ],
             1: [    0 , 10 , 10 , 40 ],
             2: [ x+30 , 10 , 10 , 40 ],
-            3: [    x , 40 , 30 , 15 ],
+            3: [    x , 40 , 30 , 20 ],
             4: [    0 , 55 , 10 , 40 ],
             5: [ x+30 , 55 , 10 , 40 ],
             6: [    x , 90 , 30 , 10 ]
@@ -130,7 +134,7 @@ class ReadDigits:
             0: [ x+60 ,  0 , 30 , 10 ],
             1: [ x+55 , 10 , 10 , 40 ],
             2: [ x+90 , 10 , 10 , 40 ],
-            3: [ x+60 , 40 , 30 , 15 ],
+            3: [ x+60 , 40 , 30 , 20 ],
             4: [ x+50 , 55 , 10 , 40 ],
             5: [ x+80 , 55 , 10 , 40 ],
             6: [ x+55 , 90 , 30 , 10 ]
@@ -140,7 +144,7 @@ class ReadDigits:
             0: [ x+115 ,  0 , 30 , 10 ],
             1: [ x+110 , 10 , 10 , 40 ],
             2: [ x+140 , 10 , 10 , 40 ],
-            3: [ x+115 , 40 , 30 , 15 ],
+            3: [ x+115 , 40 , 30 , 20 ],
             4: [ x+110 , 55 , 10 , 40 ],
             5: [ x+140 , 55 , 10 , 40 ],
             6: [ x+115 , 90 , 30 , 10 ]
@@ -168,7 +172,7 @@ class ReadDigits:
 
             segmentMean = cv2.mean(roi)
 
-            if segmentMean[0] > 50:
+            if segmentMean[0] > self.threshold:
                 lookup_digit_1[d] = 1
             else:
                 lookup_digit_1[d] = 0
@@ -181,7 +185,7 @@ class ReadDigits:
 
             segmentMean = cv2.mean(roi)
 
-            if segmentMean[0] > 50:
+            if segmentMean[0] > self.threshold:
                 lookup_digit_2[d] = 1
             else:
                 lookup_digit_2[d] = 0
@@ -194,7 +198,7 @@ class ReadDigits:
 
             segmentMean = cv2.mean(roi)
 
-            if segmentMean[0] > 50:
+            if segmentMean[0] > self.threshold:
                 lookup_digit_3[d] = 1
             else:
                 lookup_digit_3[d] = 0
@@ -207,16 +211,16 @@ class ReadDigits:
 
 
         # Find the number on the lookup table
-        # digit1 = str(3)
-        # digit2 = str(DIGITS_LOOKUP[tuple(lookup_digit_2)])
-        # print(digit1)
-        # print(digit2)
-        # digit3 = str(DIGITS_LOOKUP[tuple(lookup_digit_3)])
-        # print(digit3)
+        digit1 = str(DIGITS_LOOKUP[tuple(lookup_digit_1)])
+        digit2 = str(DIGITS_LOOKUP[tuple(lookup_digit_2)])
+        print(digit1)
+        print(digit2)
+        digit3 = str(DIGITS_LOOKUP[tuple(lookup_digit_3)])
+        print(digit3)
 
         # Create result string
-        # outputString = ( digit1 + digit2 + "." + digit3  )
-        outputString = '36.4'
+        outputString = ( digit1 + digit2 + "." + digit3  )
+        # outputString = '36.4'
         print ( outputString )
         self.digit_pub.publish(String(data=outputString))
 
