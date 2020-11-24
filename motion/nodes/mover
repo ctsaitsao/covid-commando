@@ -2,7 +2,6 @@
 
 """
     Inverse Kinematics for Baxter end effector using moveit package 
-    
 """
 import sys
 import numpy as np 
@@ -38,10 +37,15 @@ class Mover(object):
         self.reset = rospy.ServiceProxy('/reset', Empty)
         # GetPose service
         rospy.Service('/get_pose', GetPose, self.get_pose_callback)
-        # GoToPose service
+        # GoToPose service for right arm
         rospy.Service('/go_to_pose', GoToPose, self.go_to_pose_callback)
         rospy.wait_for_service('/go_to_pose')
         self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
+
+        #Go to Pose service for left arm:
+        rospy.Service('/go_to_pose_left', GoToPose, self.go_to_pose_left_callback)
+        rospy.wait_for_service('/go_to_pose_left')
+        self.go_to_pose_left = rospy.ServiceProxy('/go_to_pose_left', GoToPose)
 
         #Get_Joint_Angles Service
         rospy.Service('/get_joint_angles', Empty, self.get_joint_angles_callback)
@@ -165,16 +169,28 @@ class Mover(object):
         Reads the current pose of the right arm gripper
         """
         right_current_pose = self.right_arm_group.get_current_pose(end_effector_link="right_gripper").pose
+        print(right_current_pose)
+
+        left_current_pose = self.left_arm_group.get_current_pose(end_effector_link="left_gripper").pose
+        print(left_current_pose)
 
         angles = euler_from_quaternion([right_current_pose.orientation.x,
                                         right_current_pose.orientation.y,
                                         right_current_pose.orientation.z,
                                         right_current_pose.orientation.w])
 
+        angles_left = euler_from_quaternion([left_current_pose.orientation.x,
+                                        left_current_pose.orientation.y,
+                                        left_current_pose.orientation.z,
+                                        left_current_pose.orientation.w])
+        
         return GetPoseResponse(x=right_current_pose.position.x,
                                y=right_current_pose.position.y,
                                z=right_current_pose.position.z,
-                               r=angles[0], p=angles[1], yaw=angles[2])
+                               r=angles[0], p=angles[1], yaw=angles[2],xl=left_current_pose.position.x,
+                               yl=left_current_pose.position.y,
+                               zl=left_current_pose.position.z,
+                               rl=angles_left[0], pl=angles_left[1], yawl=angles_left[2])
 
     ###Trial to read joint angles 
 
@@ -418,23 +434,35 @@ class Mover(object):
         
          # Going to neutral position 
         joint_target_pose = self.right_arm_group.get_current_joint_values()
-        joint_target_pose[0] =  0.0         #1.3203739631723699
-        joint_target_pose[1] =  -0.55       #-0.6626797003664987
-        joint_target_pose[2] =  0.0         #-0.3090971287589109
-        joint_target_pose[3] =  0.75        #1.23255356306593
-        joint_target_pose[4] =  0.0         #0.7485826244880819
-        joint_target_pose[5] =  1.26        #-0.6312330942148477
-        joint_target_pose[6] =  0.0         #2.6599226861933074
+        joint_target_pose[0] = 0.0
+        joint_target_pose[1] = -0.55
+        joint_target_pose[2] = 0.0
+        joint_target_pose[3] = 0.75
+        joint_target_pose[4] = 0.0
+        joint_target_pose[5] = 1.26
+        joint_target_pose[6] = 0.0
         
-        self.right_arm_group.set_joint_value_target(joint_target_pose)
-        success, traj, _, errCode = self.right_arm_group.plan()
-        ref = self.right_arm_group.get_current_pose()
-        traj = self.right_arm_group.retime_trajectory(ref,traj)
-        self.right_arm_group.execute(traj)
 
-        # self.right_arm_group.go(joint_target_pose, wait=True)
-        # self.right_arm_group.stop()
+        joint_target_pose_left = self.left_arm_group.get_current_joint_values()
+        joint_target_pose_left[0] = -0.529558255045539024  #s0
+        joint_target_pose_left[1] = -0.0502378708032473     #s1
+        joint_target_pose_left[2] = -0.615583396543295  #e0
+        joint_target_pose_left[3] = 0.26959712347086146 #e1
+        joint_target_pose_left[4] = -0.6055389160177671 #w0
+        joint_target_pose_left[5] = 0.10354370318226543 #w1
+        joint_target_pose_left[6] = -0.38004374019861126 #w2
+
+
+        self.right_arm_group.go(joint_target_pose, wait=True)
+        self.left_arm_group.go(joint_target_pose_left, wait=True)
+
+        self.left_arm_group.stop()
+        self.right_arm_group.stop()
+
+
         self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
+        self.left_arm_group.clear_pose_target(end_effector_link="left_gripper")
+
         return EmptyResponse()
 
 ####
@@ -554,6 +582,59 @@ class Mover(object):
         # self.move_to_pose_decoupled(pose_goal.pose)
         print(f"{CYAN}x:{pose_goal.pose.position.x},y:{pose_goal.pose.position.y}")
         fraction = self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
+        
+        return GoToPoseResponse(success=fraction > 0.50)
+
+        
+    def go_to_pose_left_callback(self, req):
+        print(f"{CYAN} Go to pose called!")
+        """
+        Callback funtion for the go_to_pose_left service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
+        Args:
+        req (arm_move/GoToPoseRequest):
+        
+        Returns:
+        - (arm_move/GoToPoseResponse): MoveItErrorCode to indicate success or failure
+        """
+        pose_goal = PoseStamped()
+        pose_goal.header.frame_id = req.frame
+        pose_goal.pose.position.x = req.x
+        pose_goal.pose.position.y = req.y
+        pose_goal.pose.position.z = req.z
+
+        quat = quaternion_from_euler(req.r, req.p, req.yaw)
+
+        pose_goal.pose.orientation.x = quat[0]
+        pose_goal.pose.orientation.y = quat[1]
+        pose_goal.pose.orientation.z = quat[2] 
+        pose_goal.pose.orientation.w = quat[3]
+
+        """
+            Using go to pose 
+        """
+        # print("Setting Target")
+        # self.right_arm_group.set_pose_target(pose_goal.pose,end_effector_link="right_gripper")        
+        # success, traj, _, errCode = self.right_arm_group.plan()
+        # print("Executing...")
+        # self.right_arm_group.execute(traj)
+        # self.right_arm_group.stop()
+
+
+        """
+            Using Cartesian path planner
+        """
+        # angles = [0.7620049563820793, -1.0549952868681933, 0.12156797743991904, 1.6486458517798483, -0.08053399136398422, -0.432966077380658, 0.07631554419729933]
+        # angles = [0.7136845615636888, -0.8057234088368136, -0.009970875121255189, 1.231403077475016, 0.04371845245473429, 1.04272344056511, 0.07439806821244256]
+        # names = self.right_arm_limb.joint_names()
+        # positions = dict(zip(names,angles))
+        # self.right_arm_limb.move_to_joint_positions(positions)
+
+        # self.right_arm_group.go(angles, wait=True)
+        # self.right_arm_group.stop()
+
+        # self.move_to_pose_decoupled(pose_goal.pose)
+        print(f"{CYAN}x:{pose_goal.pose.position.x},y:{pose_goal.pose.position.y}")
+        fraction = self.cartesian_plan_execute(self.left_arm_group,pose_goal.pose)
         
         return GoToPoseResponse(success=fraction > 0.50)
 

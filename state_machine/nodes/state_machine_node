@@ -25,6 +25,7 @@ class StateMachine:
         rospy.wait_for_service('/go_to_pose')
         rospy.wait_for_service('/blink_arm_light')
         rospy.wait_for_service('/go_to_joint_angle')
+
         self.go_to_neutral = rospy.ServiceProxy('/go_to_joint_angle', Empty)
         # self.get_pose = rospy.ServiceProxy('/get_pose', GetPose)
         self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
@@ -174,6 +175,8 @@ class StateMachine:
 
                 self.state = 'display_result'
 
+
+
                 pass
 
             # elif self.state == 'check_temperature':
@@ -196,6 +199,7 @@ class StateMachine:
                 # Wait for 10s or some user action, then return to search_for_face
                 rospy.sleep(2)
                 self.go_to_neutral()
+                self.go_to_pose_left(x= 0.22979708015918732, y= 1.0588802099227905, z= -0.08750268816947937, r=3.096444845199585,p=0.015665998682379723, yaw=-1.6834826469421387)
                 self.prev_state = self.state
                 print("State machine end")
                 self.state = 'search_for_face'

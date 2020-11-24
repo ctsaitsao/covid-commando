@@ -5,3 +5,9 @@ float32 z
 float32 r
 float32 p
 float32 yaw
+float32 xl
+float32 yl
+float32 zl
+float32 rl
+float32 pl
+float32 yawl
