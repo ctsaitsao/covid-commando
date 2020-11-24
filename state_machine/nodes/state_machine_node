@@ -50,6 +50,7 @@ class StateMachine:
         # Display publisher 
         self.display_pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
 
+
         # Digital IO for controlling arm light
         self.light_control = DIO.DigitalIO('left_outer_light')
 
