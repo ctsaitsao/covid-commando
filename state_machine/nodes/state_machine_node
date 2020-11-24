@@ -194,12 +194,12 @@ class StateMachine:
                 self.update_screen_temp(temp, temp_level)
                 # self.update_screen_temp()
                 # Wait for 10s or some user action, then return to search_for_face
-                rospy.sleep(5)
+                rospy.sleep(2)
                 self.go_to_neutral()
                 self.prev_state = self.state
                 print("State machine end")
-                # self.state = 'search_for_face'
-                # self.face_pose = None
+                self.state = 'search_for_face'
+                self.face_pose = None
             else:
                 pass 
 
