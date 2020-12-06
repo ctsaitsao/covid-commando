@@ -1,7 +1,15 @@
 #! usr/bin/env python3
 
 """
-    Inverse Kinematics for Baxter end effector using moveit package 
+    Motion planning and execution for Baxter arms 
+
+    Services:
+        - '/reset'
+        - '/get_pose'
+        - '/go_to_pose'
+        - '/get_joint_angles'
+        - '/go_to_joint_angle'
+
     
 """
 import sys
@@ -21,7 +29,15 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion
 CYAN = '\033[96m'
 
 class Mover(object):
+    """
+        Mover node 
+        
+        On startup, enables robot and puts arms in neutral pose.
+        Provides service for arms to move to different poses. 
+
+    """
     def __init__(self):
+        # Moveit initialization
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
         
@@ -29,10 +45,17 @@ class Mover(object):
         self.left_arm_group = moveit_commander.MoveGroupCommander("left_arm", wait_for_servers=30)
         self.right_arm_group = moveit_commander.MoveGroupCommander("right_arm", wait_for_servers=30)
         
-        # Reset Service:
-        rospy.Service('/reset', Empty,self.reset_callback)
-        # GetPose service:
+        # Baxter interface limb  
+        self.right_arm_limb = baxter_interface.limb.Limb("right")
+
+        # Reset Service
+        rospy.Service('/reset', Empty, self.reset_callback)
+        rospy.wait_for_service('/reset')
+        self.reset = rospy.ServiceProxy('/reset', Empty)
+
+        # GetPose service
         rospy.Service('/get_pose', GetPose, self.get_pose_callback)
+
         # GoToPose service
         rospy.Service('/go_to_pose', GoToPose, self.go_to_pose_callback)
         rospy.wait_for_service('/go_to_pose')
@@ -44,9 +67,6 @@ class Mover(object):
         #Go to Joint angle service
         rospy.Service('/go_to_joint_angle',Empty, self.move_to_joint)
 
-        # Go to Neutral service
-        # rospy.Service('/go_to_neutral', Empty , self.go_to_neutral)
-
         # Enable Robot 
         print("Getting robot state... ")
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
@@ -55,40 +75,22 @@ class Mover(object):
         self._rs.enable()
         self.planning_frame_left = self.left_arm_group.get_planning_frame()  # Planning frame: world
         self.planning_frame_right = self.right_arm_group.get_planning_frame()
-        # self.planning_frame_left = 'head_camera'
-        # self.planning_frame_right = 'head_camera'
         
         # Make right arm to go neutral position
         print(f"{CYAN}Going to neutral pose...") 
-        
         self.reset()
 
-        # Go to left side tucked 
-        # angles = [0.3508981052287884, -0.6312330942148477, -0.13882526130362993, 2.0447963902512565, -0.1729563338340804, -1.119805975156352, 0.10584467436409355]
-        # names = self.right_arm_limb.joint_names()
-        # positions = dict(zip(names,angles))
-        # self.right_arm_limb.move_to_joint_positions(positions)
-        # Set planning time to 10s
-        self.right_arm_group.set_planning_time(10)
-        self.right_arm_group.allow_replanning(True)
-
-
-        #adding multiple walls to represent safety barrier for people
-        # self.add_wall()
+        # Add cylinder around baxter head in planning scene 
         self.add_cylinder()
 
-    # def move_to_neutral(self,req):
-    #     self.right_arm_limb.move_to_neutral()
-    #     return EmptyResponse
 
     def wait_for_state_update(self, item_name, item_attached=False,
                               item_known=False, timeout=4):
-        """ Ensures collision updates are received by waiting until changes
+        """ 
+            Ensures collision updates are received by waiting until changes
             are reflected in get_attached_objects() and
             get_known_object_names() lists.
-
             Taken from Interbotix MoveIt Tutorial's Python interface example.
-
             Args:
                 item_name (string): name of item being added to planning scene
                 item_attached (bool): whether item is already in
@@ -115,6 +117,9 @@ class Mover(object):
         return False
 
     def add_cylinder(self):
+        """
+            Adds a cylinder around the Baxter head to prevent arms from colliding with the screen.
+        """
         cylinder_pose = PoseStamped()
         cylinder_pose.pose.position.z = 0.7
         cylinder_pose.header.frame_id = self.planning_frame_right
@@ -122,42 +127,9 @@ class Mover(object):
         while not self.wait_for_state_update('cylinder', item_known=True):
             self.scene.add_cylinder('cylinder', cylinder_pose, .3, 0.2)
 
-
-    # def add_wall(self):
-    #     wall_1_pose = PoseStamped()
-    #     wall_1_pose.header.frame_id = self.planning_frame_right
-    #     wall_1_pose.pose.position.x = 1.5
-    #     self.scene.add_box('wall1', wall_1_pose, size=(0.1, 0.5, 2))
-    #     while not self.wait_for_state_update('wall1', item_known=True):
-    #         self.scene.add_box('wall1', wall_1_pose, size=(0.1, 0.5, 2))
-
-    #     wall_2_pose = PoseStamped()
-    #     wall_2_pose.header.frame_id = self.planning_frame_right
-    #     wall_2_pose.pose.position.x = 1.5
-    #     wall_2_pose.pose.position.y = 0.8
-    #     ###
-    #     angle2 = quaternion_from_euler(0,0,0.524)
-    #     wall_2_pose.pose.orientation.z = angle2[2]
-    #     wall_2_pose.pose.orientation.w = angle2[3]
-    #     self.scene.add_box('wall2', wall_2_pose, size=(0.1, 0.5, 2))
-    #     while not self.wait_for_state_update('wall2', item_known=True):
-    #         self.scene.add_box('wall2', wall_2_pose, size=(0.1, 0.5, 2))
-
-    #     wall_3_pose = PoseStamped()
-    #     wall_3_pose.header.frame_id = self.planning_frame_right
-    #     wall_3_pose.pose.position.x = 1.5
-    #     wall_3_pose.pose.position.y = -0.8
-
-    #     angle3 = quaternion_from_euler(0,0,-0.524)
-    #     wall_3_pose.pose.orientation.z = angle3[2]
-    #     wall_3_pose.pose.orientation.w = angle3[3]
-    #     self.scene.add_box('wall3', wall_3_pose, size=(0.1, 0.5, 2))
-    #     while not self.wait_for_state_update('wall3', item_known=True):
-    #         self.scene.add_box('wall3', wall_3_pose, size=(0.1, 0.5, 2))
-
     def get_pose_callback(self, req):
         """
-        Reads the current pose of the right arm gripper
+            Reads the current pose of the right arm gripper
         """
         right_current_pose = self.right_arm_group.get_current_pose(end_effector_link="right_gripper").pose
 
@@ -171,149 +143,56 @@ class Mover(object):
                                z=right_current_pose.position.z,
                                r=angles[0], p=angles[1], yaw=angles[2])
 
-    def cartesian_plan_execute(self,move_group,target_pose):
-        tries = 0
-
-        plan,fraction = move_group.compute_cartesian_path(
-                        [target_pose],
-                        0.01,
-                        0.0
-        )
-
-        print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
-        self.right_arm_group.execute(plan)
-        self.right_arm_group.stop()
-
-        while fraction<1 and tries<10:
-            plan,fraction = move_group.compute_cartesian_path(
-                        [target_pose],
-                        0.01,
-                        0.0
-        )
-            print(f"Trajectory Planned:{fraction}, Attempt: {tries}")
-            self.right_arm_group.execute(plan)
-            self.right_arm_group.stop()
-            tries +=1
-            
-        
-        # self.right_arm_group.clear_pose_targets()
-
-    def reset_callback(self, req):
-        """
-        Moves the right arm to a default home state
-        """
-        #Declaring the reset position and assigning coordinates
-        right_target_pose = Pose()
-        right_target_pose.position.x = rospy.get_param("reset.p.x")
-        right_target_pose.position.y = rospy.get_param("reset.p.y")
-        right_target_pose.position.z = rospy.get_param("reset.p.z")
-        right_target_pose.orientation.x = rospy.get_param("reset.o.x")
-        right_target_pose.orientation.y = rospy.get_param("reset.o.y")
-        right_target_pose.orientation.z = rospy.get_param("reset.o.z")
-        right_target_pose.orientation.w = rospy.get_param("reset.o.w")
-
-        #set target
-        self.right_arm_group.set_pose_target(right_target_pose,end_effector_link="right_gripper")
-        print(right_target_pose)
-        print("Setting Target")
-
     def get_joint_angles_callback(self, req):
         """
-        Reads the current joint angles and prints them
+            Reads the current joint angles and prints them
         """
         right_current_angles = self.right_arm_group.get_current_joint_values()
         print(right_current_angles)
         
         return Empty
 
-
-    #####
-
-    def move_to_pose_decoupled(self, target_pose):
-        target_point = [target_pose.position.x,
-                        target_pose.position.y,
-                        target_pose.position.z]
-
-        self.right_arm_group.set_position_target(target_point,end_effector_link="right_gripper")
-        # Plan 
-        print("Planning...")
-        success, traj, _, errCode = self.right_arm_group.plan()
-
-        # # Execute 
-        # print("Executing...")
-
-        # if not success:
-        #     print("Error, planning failed")
-        #     return EmptyResponse()
-        # else:
-        #     self.right_arm_group.execute(traj)
-        #     self.right_arm_group.stop()
-        #     print("Success!")
-        
-        # Clear pose targets 
-        self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
-
-
-
-        # target_orientation = [target_pose.orientation.x,
-        #                       target_pose.orientation.y,
-        #                       target_pose.orientation.z,
-        #                       target_pose.orientation.w]
-
-        # self.right_arm_group.set_orientation_target(target_orientation, end_effector_link="right_gripper")
-        # # Plan 
-        # print("Planning...")
-        # success, traj, _, errCode = self.right_arm_group.plan()
-
-        # # Execute 
-        # print("Executing...")
-
-        # if not success:
-        #     print("Error, planning failed")
-        #     return EmptyResponse()
-        # else:
-        #     self.right_arm_group.execute(traj)
-        #     self.right_arm_group.stop()
-        #     print("Success!")
-        
-        # # Clear pose targets 
-        # self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
-
     def cartesian_plan_execute(self,move_group,target_pose):
         """
-            Plans a cartesian path to target pose
+            Plans and executes trajectory to bring arm to a target pose (for temperature reading)
 
-            If it is not able to reach 95% of the trajectory, go to a random pose that is close by,
-            and try again 
+            Procedure:
+            1. Plans cartesian trajectory to target pose  
+            2. If planner is able to plan less than 90% of the path to the target,
+                go to a saved postion
+                From that saved position, plan and execute movement
+            3. Otherwise, execute the plan
+
+            Args: 
+                move_group (MoveGroupCommander): right or left arm move group
+                target_pose (Pose)
+            
+            Returns:
+                fraction: fraction of final trajectory planned 
+    
         """
         def planning(pose):
+            """
+                Plans a cartesian path for a pose 
+                
+                Args:
+                    pose (Pose)
+                
+                Returns:
+                    plan: cartesian trajectory 
+                    fraction: fraction of trajectory to target planned
+            """
             plan,fraction = move_group.compute_cartesian_path(
                             [pose],
                             0.01,
                             0.0
             )
             return plan, fraction
-        
-        def point_from_pose(pose):
-            point = np.array([pose.position.x,
-                            pose.position.y,
-                            pose.position.z])
-            return point 
-
-        def current_to_rand_dist(rand_pose):
-            pass
-
-        def rand_to_target_dist(rand_pose, target_pose):
-            rand_point = point_from_pose(rand_pose)
-            target_point = point_from_pose(target_pose)
-            dist = np.linalg.norm(target_point - rand_point)
-            return dist
 
         # Plan target pose
         plan, fraction = planning(target_pose)
         print(f"{CYAN} First Plan: {fraction} ")
         
-
         if fraction<0.90:
             # Person on left side
             if target_pose.position.y <0:
@@ -328,133 +207,36 @@ class Mover(object):
             names = self.right_arm_limb.joint_names()
             positions = dict(zip(names,angles))
             self.right_arm_limb.move_to_joint_positions(positions)
-            # self.right_arm_limb.move_to_neutral()
 
             plan, fraction = planning(target_pose)
             print(f"{CYAN}\n Second Plan:{fraction}")
             print(f"{CYAN}First attempt to target pose\n")
             self.right_arm_group.execute(plan)
-            # self.right_arm_group.execute(plan, wait=True)  # TODO
             self.right_arm_group.stop()
 
         else:
             print(f"{CYAN}\nTrajectory Planned:{fraction}")
             print(f"{CYAN}First attempt to target pose\n")
             self.right_arm_group.execute(plan)
-            # self.right_arm_group.execute(plan, wait=True)  # TODO
             self.right_arm_group.stop()
         
         self.right_arm_group.clear_pose_targets()
 
         return fraction
 
-        # while fraction < 0.95:
-        #     # Get random pose 
-        #     dist = 1e5
-        #     tries = 0
-        #     while dist>0.3:
-        #         rand_pose = self.right_arm_group.get_random_pose(end_effector_link="right_gripper").pose
-        #         dist = rand_to_target_dist(rand_pose,target_pose)
-        #         print(f"{CYAN}\nRand-Target Dist: {dist}, Tries: {tries}")
-        #         tries += 1
-        #     print(f"{CYAN}\nRand-Target Dist: {dist}")
-        #     # Go to random pose
-        #     rand_plan, rand_fraction = planning(rand_pose)
-        #     print(f"{CYAN}Going to random pose, traj fraction: {rand_fraction}\n")
-        #     self.right_arm_group.execute(rand_plan)
-        #     self.right_arm_group.stop()
-        #     # Go to target pose
-        #     plan, fraction = planning (target_pose)
-        #     print(f"{CYAN}\nGoing to target pose, traj fraction: {fraction}\n")
-        #     self.right_arm_group.execute(plan)
-        #     self.right_arm_group.stop()
-                 
-
-    def saved_pose_mover(self, move_group, target_pose):
-        
-        saved_poses = rospy.get_param("saved_poses")
-        def planning(pose):
-            plan,fraction = move_group.compute_cartesian_path(
-                            [pose],
-                            0.01,
-                            0.0
-            )
-            return plan, fraction
-        def point_from_pose(pose):
-            point = np.array([pose.position.x,
-                            pose.position.y,
-                            pose.position.z])
-            return point 
-        def point_from_saved_pose(saved_pose):
-            print(f"{CYAN}point_from_saved_pose")
-            saved_pose = saved_pose[list(saved_pose.keys())[0]]
-            point = np.array([saved_pose["p.x"],
-                            saved_pose["p.y"],
-                            saved_pose["p.z"]])
-            return point
-        def closest_saved_pose(target_pose):
-            min_dist = 1e5
-            closest = None
-            for i,saved_pose in enumerate(saved_poses):
-                saved_point = point_from_saved_pose(saved_pose)
-                print(f"{CYAN}saved_point")
-                target_point = point_from_pose(target_pose)
-                print(f"{CYAN}target_point")
-                dist = np.linalg.norm(target_point - saved_point)
-                if min_dist>dist:
-                    min_dist = dist
-                    closest = saved_pose
-            closest = closest[list(closest.keys())[0]]
-            print(f"{CYAN}{closest}")
-            closest_pose = Pose()
-            closest_pose.position.x = closest["p.x"]
-            closest_pose.position.y = closest["p.y"]
-            closest_pose.position.z = closest["p.z"]
-            closest_pose.orientation.x = closest["o.x"]
-            closest_pose.orientation.y = closest["o.y"]
-            closest_pose.orientation.z = closest["o.z"]
-            return closest_pose         
-        
-        # Cartesian to saved pose
-        print(f"{CYAN}Going to closest saved pose")
-        closest_pose = closest_saved_pose(target_pose)
-        print(f"{CYAN}closest_found")
-        self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
-        success, traj, _, errCode = self.right_arm_group.plan()
-        self.right_arm_group.execute(traj)
-        self.right_arm_group.stop()
-        self.right_arm_group.clear_pose_targets()
-        
-        # plan, fraction = planning(closest_pose)
-        # self.right_arm_group.execute(plan)
-        # self.right_arm_group.stop()
-
-        # Go to target pose 
-        print(f"{CYAN}Going to target pose")
-        self.right_arm_group.set_pose_target(closest_pose,end_effector_link="right_gripper")
-        success, traj, _, errCode = self.right_arm_group.plan()
-        self.right_arm_group.execute(traj)
-        self.right_arm_group.stop()
-        self.right_arm_group.clear_pose_targets()
-
-        # plan, fraction = planning(target_pose)
-        # self.right_arm_group.execute(plan)
-        # self.right_arm_group.stop()
-    
-    
-        
-#### Service callback to move to Joint angle
+                         
     def move_to_joint(self, req):
         """
-        Move the arm to a set of joint angles
+            Moves the right arm to the neutral position a
+            This is used in state machine to move the right arm back to a neutral position 
+
+            Args:
+                req (EmptyRequest)
+            
+            Returns:
+                EmptyResponse 
         """
-        
-        # Left side tucked
-        # angles = [0.3508981052287884, -0.6312330942148477, -0.13882526130362993, 2.0447963902512565, -0.1729563338340804, -1.119805975156352, 0.10584467436409355]
-        # names = self.right_arm_limb.joint_names()
-        # positions = dict(zip(names,angles))
-        # self.right_arm_limb.move_to_joint_positions(positions)
-        
+
          # Going to neutral position 
         joint_target_pose = self.right_arm_group.get_current_joint_values()
         joint_target_pose[0] =  0.0         #1.3203739631723699
@@ -471,87 +253,38 @@ class Mover(object):
         traj = self.right_arm_group.retime_trajectory(ref,traj)
         self.right_arm_group.execute(traj)
 
-        # self.right_arm_group.go(joint_target_pose, wait=True)
-        # self.right_arm_group.stop()
         self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
         return EmptyResponse()
 
-####
-
-
     def reset_callback(self, req):
         """
-        Moves the right arm to a default home state
-        """
-        print('RESETTTOGKSGMSDFDF')
+            Moves the right arm to a default home state using baxter interface 
 
+            We use the baxter interface instead of moveit because this method is produces as quicker 
+            action from the robot, and since this is only called at startup, it will not interfere with
+            moveit commands used later. 
+
+            Args:
+                req (EmptyRequest)
+
+            Returns:
+                EmtpyResponse 
+            
+        """
         self.right_arm_limb.move_to_neutral()
-
-        # #Declaring the reset position and assigning coordinates
-        # right_target_pose = Pose()
-        # right_target_pose.position.x = rospy.get_param("read")["p.x"]
-        # right_target_pose.position.y = rospy.get_param("read")["p.y"]
-        # right_target_pose.position.z = rospy.get_param("read")["p.z"]
-        # right_target_pose.orientation.x = rospy.get_param("read")["o.x"]
-        # right_target_pose.orientation.y = rospy.get_param("read")["o.y"]
-        # right_target_pose.orientation.z = rospy.get_param("read")["o.z"]
-        # right_target_pose.orientation.w = rospy.get_param("read")["o.w"]
-
-        # # Set target
-        # self.right_arm_group.set_pose_target(right_target_pose,end_effector_link="right_gripper")
-        # # print(right_target_pose)
-        # print("\nGoing to read position\n")
-
-        #Can be done for left arm too
-        """
-        left_current_pose = self.left_arm_group.get_current_pose(end_effector_link="left_gripper").pose
-        left_target_pose = left_current_pose
-        left_target_pose.position.x = 0.26371349340013645
-        left_target_pose.position.y = 1.091296894035553
-        left_target_pose.position.z = 0.35912424523904696
-        left_target_pose.orientation.x = -0.24796782188110464
-        left_target_pose.orientation.y = 0.18128140465718853
-        left_target_pose.orientation.z = 0.24710610580797293
-        left_target_pose.orientation.w = 0.9190144634930815
-        """
-        
-        """
-            Using go to pose 
-        """
-        # # Plan 
-        # print("Planning...")
-        # success, traj, _, errCode = self.right_arm_group.plan()
-
-        # # Execute 
-        # print("Executing...")
-
-        # if not success:
-        #     print("Error, planning failed")
-        #     return EmptyResponse()
-        # else:
-        #     self.right_arm_group.execute(traj)
-        #     self.right_arm_group.stop()
-        #     print("Success!")
-        
-        # # Clear pose targets 
-        # self.right_arm_group.clear_pose_targets()
-
-        """
-            Using cartesian path planner
-        """
-        self.cartesian_plan_execute(self.right_arm_group,right_target_pose)
 
         return EmptyResponse()
     
     def go_to_pose_callback(self, req):
         print(f"{CYAN} Go to pose called!")
         """
-        Callback funtion for the go_to_pose service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
+            Callback funtion for the go_to_pose service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
+        
         Args:
-        req (arm_move/GoToPoseRequest):
+            req (arm_move/GoToPoseRequest): Target pose information
         
         Returns:
-        - (arm_move/GoToPoseResponse): MoveItErrorCode to indicate success or failure
+            (arm_move/GoToPoseResponse): Bool to indicate success or failure
         """
         pose_goal = PoseStamped()
         pose_goal.header.frame_id = req.frame
@@ -566,40 +299,6 @@ class Mover(object):
         pose_goal.pose.orientation.z = quat[2] 
         pose_goal.pose.orientation.w = quat[3]
 
-        """
-            Using Go to Pose
-        """
-        self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
-
-
-        """
-            Using Cartesian path planner
-        """
-        plan,fraction = self.right_arm_group.compute_cartesian_path(
-                        [pose_goal.pose],
-                        0.01,
-                        0.0
-        )
-        self.right_arm_group.execute(plan)
-        self.right_arm_group.stop()
-        self.right_arm_group.clear_pose_targets()
-        
-        
-        return GoToPoseResponse()
-
-        """
-            Using Cartesian path planner
-        """
-        # angles = [0.7620049563820793, -1.0549952868681933, 0.12156797743991904, 1.6486458517798483, -0.08053399136398422, -0.432966077380658, 0.07631554419729933]
-        # angles = [0.7136845615636888, -0.8057234088368136, -0.009970875121255189, 1.231403077475016, 0.04371845245473429, 1.04272344056511, 0.07439806821244256]
-        # names = self.right_arm_limb.joint_names()
-        # positions = dict(zip(names,angles))
-        # self.right_arm_limb.move_to_joint_positions(positions)
-
-        # self.right_arm_group.go(angles, wait=True)
-        # self.right_arm_group.stop()
-
-        # self.move_to_pose_decoupled(pose_goal.pose)
         print(f"{CYAN}x:{pose_goal.pose.position.x},y:{pose_goal.pose.position.y}")
         fraction = self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
         
@@ -607,6 +306,9 @@ class Mover(object):
 
 
 def main():
+    """
+        The main function
+    """
     moveit_commander.roscpp_initialize(sys.argv)
     rospy.init_node('moveit_mover')
     m = Mover()
