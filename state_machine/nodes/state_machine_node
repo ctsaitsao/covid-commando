@@ -37,7 +37,7 @@ from state_machine.srv import SetState, SetStateResponse
 from sensor_msgs.msg import Image
 from std_srvs.srv import Empty, EmptyRequest, EmptyResponse, Trigger
 from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse
-from state_machine.src.screen_display.displays import get_image, create_temp_image
+from state_machine import get_image, create_temp_image
 
 class StateMachine:
     """ Decides what state robot is in. """
