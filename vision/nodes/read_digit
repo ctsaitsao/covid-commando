@@ -1,5 +1,18 @@
 #!/usr/bin/env python
-#https://www.pyimagesearch.com/2017/02/13/recognizing-digits-with-opencv-and-python/
+
+"""
+Node reads an image frame from a ROS image_raw message, allows the user to highlight a 
+region of interest (capture window), then attempts to read a 7-segment LED display 
+using image segmentation. LED segmentation information adapted from
+https://www.pyimagesearch.com/2017/02/13/recognizing-digits-with-opencv-and-python/
+
+SUBSCRIBERS:
+    /state (std_msgs/String): state of the overall control loop
+
+PUBLISHERS:
+    /digit_reading (std_msgs/String): temperature value read from IR thermometer
+"""
+
 
 import cv2
 import numpy
@@ -10,11 +23,10 @@ from imutils import contours
 import imutils
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
-
 import sys
 
-# define the dictionary of digit segments so we can identify
-# each digit on the thermostat
+
+# Define the dictionary of digit segments to identify each digit on the thermostat
 DIGITS_LOOKUP = {
     (1, 1, 1, 0, 1, 1, 1): 0,
     (0, 0, 1, 0, 0, 1, 0): 1,
@@ -26,10 +38,7 @@ DIGITS_LOOKUP = {
     (1, 0, 1, 0, 0, 1, 0): 7,
     (1, 1, 1, 1, 1, 1, 1): 8,
     (1, 1, 1, 1, 0, 1, 1): 9,
-    # (1, 0, 1, 1, 0, 0, 0): 3,
-    # (1, 0, 1, 1, 0, 0, 1): 3
 }
-
 
 
 """
@@ -41,33 +50,37 @@ build ROI matrix (top to bottom, left to right, seg0 to seg6)
 """
 
 class ReadDigits:
+    """
+    Reads the digits from a 7-segment LED within a user-defined region of interest
+    and returns a numerical value (in this implementation, the value returned is 
+    the temperature of an IR thermometer)
+    """
 
     def __init__(self):
 
-        # Load sample image
-        image = cv2.imread("raw_image.jpeg")
-
-        current_image = image
-
-        # DEFINE THE CAPTURE WINDOW
+        # Obtain region of interest dimensions from the ROS parameter server
         self.ROIx = rospy.get_param('/ROIx')
         self.ROIy = rospy.get_param('/ROIy')
         self.ROIw = rospy.get_param('/ROIw')
         self.ROIh = rospy.get_param('/ROIh')
 
-        # Initialize subscriber, reading a ROS Image message type
-        # (the topic will be published by the RealSense or the rosbag capture)
+        # Initialize the state subscriber, which triggers this node 
         self.state_sub = rospy.Subscriber('/state', String, self.state_callback)
+
+        # Initialize the digit publisher, which publishes a string representing the
+        # read temperature to the /digit_reading topic
         self.digit_pub = rospy.Publisher('/digit_reading', String, queue_size=10, latch=True)
 
+        # Set initial state to none
         self.state = None
 
-          # Initialize CvBridge object, which allows conversion between ROS message
-        # and OpenCV Image data type
+        # Initialize CvBridge, which converts ROS image messages into OpenCV Image data type
         self.bridge = CvBridge()
 
-        self.done = False
+        # Bool to keep track of whether digits have been read 
+        self.run_once = False
 
+        # Threshold for detecting whether an LED segment is active or not
         self.threshold = 65
 
 
@@ -77,20 +90,27 @@ class ReadDigits:
             Args:
                data (std_msgs/String): the current state
         """
-        if not self.done:
+
+        # Check that the callback is being triggered for the first time
+        if not self.run_once:
             self.state = data.data
 
+            # Check the current system state, and if ready, obtain an image from the Baxter 
+            # right_hand_camera and begin digit recognition
             if self.state == 'display_result':
                 img = rospy.wait_for_message('/cameras/right_hand_camera/image', Image)
                 self.findDigits(img)
-                self.done = True
+                self.run_once = True
 
 
     def findDigits(self, img):
+        """ Function to identify digits
 
-        print('came into findDigits')
+            Args:
+               img (sensor_msgs/Image): the image pulled from the wrist camera
+        """
 
-        # Attempt to pull frame from ROS message
+        # Attempt to pull the image frame from ROS message using CvBridge
         try:
             # Pull image as an 8-bit RGB image
             current_image = self.bridge.imgmsg_to_cv2(img, "bgr8")
@@ -98,28 +118,30 @@ class ReadDigits:
             # Print error if incoming frame cannot be pulled
             print(e)
 
+        # Define the capture window; the bottom-left corner of the capture window is positioned
+        # to capture the bottom-left segment of the first digit
         captureWindow = current_image[self.ROIy:self.ROIy+self.ROIh, self.ROIx:self.ROIx+self.ROIw]
 
+        # Correct the capture window rotation 
         captureWindow = cv2.rotate(captureWindow,cv2.ROTATE_180)
 
-        # cv2.rectangle ( current_image , (self.ROIx,self.ROIy),(self.ROIx+self.ROIw,self.ROIy+self.ROIh),(0,0,255,1))
-
-
-        # # Pre-processing
+        # Resize capture window to 100-px tall to simplify segmentation 
         captureWindow = imutils.resize(captureWindow, height=100)
+
+        # Convert to grayscale as color channels are not needed, speeding up recognition
         captureWindow = cv2.cvtColor(captureWindow, cv2.COLOR_BGR2GRAY)
 
-        # cv2.imshow("gray", captureWindow)
-
+        # Contrast adjustment using OpenCV
         captureWindow = cv2.equalizeHist(captureWindow)
 
-        # cv2.imshow("hist_gray", captureWindow)
-
+        # Treshold image to create a binary bitmap for segmentation
         captureWindow = cv2.threshold(captureWindow, 90, 255 , cv2.THRESH_BINARY_INV)[1]
 
-        # Fixed pixel values
+        # Offset for segments due to LED screen being "italicized"
         x = 10
 
+        # Definition of individual LED segments for three digits; values are based on capture 
+        # window being 100-px tall, and each segment having a width of 10 pixels
         SEGMENTS_1 = {
             0: [    x ,  0 , 30 , 10 ],
             1: [    0 , 10 , 10 , 40 ],
@@ -150,7 +172,7 @@ class ReadDigits:
             6: [ x+115 , 90 , 30 , 10 ]
         }
 
-        #Highlight ROI segments for each digit
+        #Highlight ROI segments for each digit (used for debugging)
         for i in range (7) :
             cv2.rectangle ( captureWindow , SEGMENTS_1[i],(100,100,255,2))
 
@@ -160,77 +182,80 @@ class ReadDigits:
         for k in range (7) :
             cv2.rectangle ( captureWindow , SEGMENTS_3[k],(100,100,255,2))
 
+        # Define arrays to contain segmentation binary values for dictionary lookup 
         lookup_digit_1 = [0,0,0,0,0,0,0]
         lookup_digit_2 = [0,0,0,0,0,0,0]
         lookup_digit_3 = [0,0,0,0,0,0,0]
 
-        # Check for lit segment over the 3 digits
+        # Iterate over each segment within each digit
         for d in range(7):
+
+            # Identify which segment is being tested    
             currentSegment = SEGMENTS_1[d]
-            # print ( currentSegment )
+
+            # Identify the rectangular region of interest, which is the individual segment being tested
             roi = captureWindow[currentSegment[1]:currentSegment[1]+currentSegment[3], currentSegment[0]:currentSegment[0]+currentSegment[2]]
 
+            # Calculate the mean of the pixels within the segment
             segmentMean = cv2.mean(roi)
 
+            # Check if the average is over the threshold; if true, set the segment lookup to 1, otherwise set to 1
             if segmentMean[0] > self.threshold:
                 lookup_digit_1[d] = 1
             else:
                 lookup_digit_1[d] = 0
-            # print ( segmentMean )
-
+            
         for d in range(7):
+            # Identify which segment is being tested    
             currentSegment = SEGMENTS_2[d]
-            # print ( currentSegment )
+            
+            # Identify the rectangular region of interest, which is the individual segment being tested
             roi = captureWindow[currentSegment[1]:currentSegment[1]+currentSegment[3], currentSegment[0]:currentSegment[0]+currentSegment[2]]
 
+            # Calculate the mean of the pixels within the segment
             segmentMean = cv2.mean(roi)
 
+            # Check if the average is over the threshold; if true, set the segment lookup to 1, otherwise set to 1
             if segmentMean[0] > self.threshold:
                 lookup_digit_2[d] = 1
             else:
                 lookup_digit_2[d] = 0
-            # print ( segmentMean )
-
+            
         for d in range(7):
+            
+            # Identify which segment is being tested    
             currentSegment = SEGMENTS_3[d]
-            # print ( currentSegment )
+            
+            # Identify the rectangular region of interest, which is the individual segment being tested
             roi = captureWindow[currentSegment[1]:currentSegment[1]+currentSegment[3], currentSegment[0]:currentSegment[0]+currentSegment[2]]
 
+            # Calculate the mean of the pixels within the segment
             segmentMean = cv2.mean(roi)
 
+            # Check if the average is over the threshold; if true, set the segment lookup to 1, otherwise set to 1
             if segmentMean[0] > self.threshold:
                 lookup_digit_3[d] = 1
             else:
                 lookup_digit_3[d] = 0
-            # print ( segmentMean )
 
+        # On-screen outputs and delay for debugging
         # cv2.imshow("input", current_image)
         # cv2.imshow("output", captureWindow)
-
         # cv2.waitKey(0)
 
 
-        # Find the number on the lookup table
+        # Find the number on the segment dictionary lookup table
         digit1 = str(DIGITS_LOOKUP[tuple(lookup_digit_1)])
         digit2 = str(DIGITS_LOOKUP[tuple(lookup_digit_2)])
-        print(digit1)
-        print(digit2)
         digit3 = str(DIGITS_LOOKUP[tuple(lookup_digit_3)])
-        print(digit3)
-
-        # Create result string
+        
+        # Create lookup result string
         outputString = ( digit1 + digit2 + "." + digit3  )
-        # outputString = '36.4'
         print ( outputString )
+        
+        # Publish output string to /digit_reading topic
         self.digit_pub.publish(String(data=outputString))
 
-        print('ran through the end')
-
-        # Output results
-        # cv2.imshow("input", current_image)
-        # cv2.imshow("output", captureWindow)
-
-        # cv2.waitKey(0)
 
 def main(args):
     rospy.init_node('read_digits', anonymous=True)
