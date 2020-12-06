@@ -14,6 +14,7 @@ from state_machine.srv import SetState, SetStateResponse
 from sensor_msgs.msg import Image
 from std_srvs.srv import Empty, EmptyRequest, EmptyResponse, Trigger
 from motion.srv import GoToPose, GoToPoseResponse, GetPose, GetPoseResponse
+from state_machine.src.screen_display.displays import get_image, create_temp_image
 
 class StateMachine:
     """ Decides what state robot is in. """
@@ -79,27 +80,13 @@ class StateMachine:
         return SetStateResponse()
     
     def update_screen(self):
-        path = self.images_dir + self.state + '.png'
-        img = cv2.imread(path)
+        img = get_image(self.images_dir, self.state)
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
         self.display_pub.publish(msg)
-        # rospy.sleep(1)
     
     def update_screen_temp(self, temp, temp_level):
         print("Temp screen update")
-        if temp_level.data == 'GREEN':
-            path = self.images_dir + 'temp_normal.png' # temp_high.png or temp_normal.png
-        elif temp_level.data == 'RED':
-            path = self.images_dir + 'temp_high.png'
-        else:
-            path = self.images_dir + 'temp_normal.png' # temp_high.png or temp_normal.png
-        base_image = cv2.imread(path)
-        outputString = temp.data + "C"
-        # outputString = "36.9" + "C"
-        cv2.putText(base_image, outputString , (300, 490), cv2.FONT_HERSHEY_DUPLEX, 5.0, (0, 0, 0), 4)
-        cv2.imwrite(self.images_dir + 'temp.png',base_image)
-
-        img = cv2.imread(self.images_dir + 'temp.png')
+        img = create_temp_image(self.images_dir, temp, temp_level)
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
         self.display_pub.publish(msg)
         # rospy.sleep(1)
