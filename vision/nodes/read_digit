@@ -41,14 +41,6 @@ DIGITS_LOOKUP = {
 }
 
 
-"""
-input 4 corners
-crop and select ROI -> captureWindow
-scale to easier value (100 tall x 150w)
-process (bw)
-build ROI matrix (top to bottom, left to right, seg0 to seg6)
-"""
-
 class ReadDigits:
     """
     Reads the digits from a 7-segment LED within a user-defined region of interest
