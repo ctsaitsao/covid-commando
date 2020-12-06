@@ -1,5 +1,28 @@
 #!/usr/bin/env python
 
+"""
+The state machine node.
+Looks at the state of the robot and calls necessary services.
+
+PUBLISHERS:
+    state_pub (String): publishes the current state of the robot
+    display_pub (Image): to display an image on the screen depending on the state of the robot
+
+
+SUBSCRIBERS:
+    face_pose_sub (Pose): calculates and outputs the location of the face from the face detection algorithm
+    found_face_sub (Bool): outputs a boolean depending on wether face detection finds a face or not
+
+
+SERVICES:
+    go_to_pose (GoToPose): commands the right arm to go to the correct location based on the face detection
+    go_to_neutral (Empty): commands the right arm to go to home/ ready position
+    blink (Trigger): blinks the lights on the right arm to trigger the thermometer
+    go_to_pose_left (GoToPose): commands the left arm to go to the specified position depending on the temperature reading from the thermometer
+
+
+"""
+
 import os 
 from pathlib import Path
 import numpy as np
