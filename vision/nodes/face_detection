@@ -1,26 +1,38 @@
 #!/usr/bin/env python
 
+"""
+Node causes interbotix arm to do planning tasks.
+SERVICES:
+    reset (arm_move/Reset): resets position of realsense box and sends robot
+                            to Home position
+    step (arm_move/Step): plans and moves robot to specified pose, stores
+                        successful waypoints, and returns error code of
+                        success/failure of plan
+    follow (arm_move/Follow): moves robot through saved waypoints, with
+                            option to loop
+    get_pose (arm_move/GetPose): gets current end-effector pose of robot
+PARAMETERS:
+    /waypoints: poses that robot follows, includes gripper status data
+"""
+
 import sys
 import rospy
 import cv2
 import tf2_ros
-import struct
 import math
 
 from std_msgs.msg import String, Bool
-from sensor_msgs.msg import Image, CameraInfo, PointCloud2
-from sensor_msgs import point_cloud2
+from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Pose, Point, TransformStamped, Vector3, Quaternion, Transform
 from image_geometry import PinholeCameraModel
+
 
 class FaceDetection:
 
     def __init__(self):
 
         # Load cascade configuration files
-        # (currently saved in same directory as the node, to be moved into config)
-        # self.faceCascade = cv2.CascadeClassifier("face_cascade.xml")
         self.faceCascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
@@ -28,8 +40,7 @@ class FaceDetection:
         # and OpenCV Image data type
         self.bridge = CvBridge()
 
-        # Initialize subscriber, reading a ROS Image message type
-        # (the topic will be published by the RealSense or the rosbag capture)
+        # Subscribe to RealSense RGB-D data and state from state machine
         self.image_sub = rospy.Subscriber('/camera/color/image_raw',
                                           Image,
                                           self.image_callback)
@@ -41,25 +52,24 @@ class FaceDetection:
                                                 CameraInfo,
                                                 self.camera_info_callback)
 
-        self.pose_pub = rospy.Publisher('/face_pose', Pose, queue_size=10)
-        self.found_face_pub = rospy.Publisher('/found_face', Bool, queue_size=10)
-
-        self.rate = rospy.Rate(100)
-
         self.state = None
         self.camera_info = None
 
+        # Publish face pose and found face state for state machine
+        self.pose_pub = rospy.Publisher('/face_pose', Pose, queue_size=10)
+        self.found_face_pub = rospy.Publisher('/found_face', Bool, queue_size=10)
+
+        # Variables for face pose estimation
         self.forehead_x = None  # x pixel location of forehead
         self.forehead_y = None  # y pixel location of forehead
         self.forehead_depth = None  # depth of location of forehead
 
-        self.face_pose = None
-
+        # Transforms for face pose calculation
         self.tf_broadcaster = tf2_ros.TransformBroadcaster()
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        # Initialize variables needed for face detection loop
+        # Initialize variables needed for opencv face detection loop
         self.dx = []
         self.dy = []
         self.lockonThreshold = 2   # Pixel hysteresis
@@ -88,9 +98,6 @@ class FaceDetection:
             # Print error if incoming frame cannot be pulled
             print(e)
 
-        # TODO: publish image with cv2 rectangles?
-        # self.image_pub.publish(self.bridge.cv2_to_imgmsg(self.incomingFrame, "bgr8"))
-
         # Our operations on the frame come here
         # Use OpenCV to convert the incoming frame into a grayscale frame
         self.grayFrame = cv2.cvtColor(self.incomingFrame, cv2.COLOR_BGR2GRAY)
@@ -98,6 +105,7 @@ class FaceDetection:
         # Run the face cascade and look for faces, then output the number of faces found
         self.faces = self.faceCascade.detectMultiScale(self.grayFrame, 1.3, 10)
 
+        # Publish if faces are found so state machine can tell the user
         if self.faces != ():
             self.found_face_pub.publish(Bool(data=True))
         else:
@@ -124,54 +132,50 @@ class FaceDetection:
             if (self.dxAverage < self.lockonThreshold) and \
                     (self.dxAverage < self.lockonThreshold):
 
-                # print("LOCK-ON ACHIEVED!")
-
-                # cv2.rectangle(self.incomingFrame, (x, y), (x+w, y+h),
-                #               (0, 0, 255), 4)
-
+                # Forehead position
                 self.forehead_x = int(round(x + w/2))
                 self.forehead_y = int(round(y + h/3))
 
+                # If forehead data has been received
                 if self.forehead_depth:
 
+                    # Initialze camera model and calibration params
                     p = PinholeCameraModel()
                     p.fromCameraInfo(self.camera_info)
 
+                    # This function takes 2D pixel and outputs unit vector of ray that
+                    # goes thru the pixel, all we need is depth now
                     i, j, k = p.projectPixelTo3dRay((self.forehead_x,
                                                     self.forehead_y))
 
-                    Tbr = Transform(
-                            translation=Vector3(            # TODO: get this from config file later
-                                # x=-0.1472865747272882,
-                                # y=0.1497960282015105,
-                                # z=-0.1870116420679273),
+                    # Transform from world to RS RGB camera frame
+                    # This transform was manually approximated through trial and error but
+                    # accuracy was high
+                    Twr = Transform(
+                            translation=Vector3(
                                 x=0.1,
-                                y=0.03, #0.03
-                                z=0.87), #0.15
+                                y=0.03,
+                                z=0.87),
                             rotation=Quaternion(
-                                # x=0.08820884012981547,
-                                # y=0.047096118746598616,
-                                # z=0.994935424732234,
-                                # w=0.010230187429768183
                                 x=0,
                                 y=0,
                                 z=0,
                                 w=1
                             ))
-                    Tbr_stamped = TransformStamped()
-                    Tbr_stamped.header.stamp = rospy.Time.now()
-                    Tbr_stamped.header.frame_id = "world"
-                    Tbr_stamped.child_frame_id = "camera_aligned_depth_to_color_frame"
-                    Tbr_stamped.transform = Tbr
+                    Twr_stamped = TransformStamped()
+                    Twr_stamped.header.stamp = rospy.Time.now()
+                    Twr_stamped.header.frame_id = "world"
+                    Twr_stamped.child_frame_id = "camera_aligned_depth_to_color_frame"
+                    Twr_stamped.transform = Twr
 
+                    self.tf_broadcaster.sendTransform(Twr_stamped)
+
+                    # Transform from RS RBG camera frame to face of person (forehead)
                     Trf = Transform(
                             translation=Vector3(
-                                x=self.forehead_depth * k,
+                                x=self.forehead_depth * k,  # accounting for frame misalignment
                                 y=self.forehead_depth * -i,
                                 z=self.forehead_depth * -j),
-                                # x=self.forehead_depth * i,
-                                # y=self.forehead_depth * j,
-                                # z=self.forehead_depth * k),
                             rotation=Quaternion(
                                 x=0,
                                 y=0,
@@ -184,12 +188,14 @@ class FaceDetection:
                     Trf_stamped.child_frame_id = "face"
                     Trf_stamped.transform = Trf
 
-                    self.tf_broadcaster.sendTransform(Tbr_stamped)
-
+                    # Only publish frame if person is within 4 m distance
+                    # (to avoid noise and detecting people far away)
                     if math.sqrt(Trf.translation.x**2 + Trf.translation.y**2
-                                 + Trf.translation.z**2 < 4):
+                                 + Trf.translation.z**2) < 4:
                         self.tf_broadcaster.sendTransform(Trf_stamped)
 
+                    # tf gives us transform from world to face (face pose in world)
+                    # which is the final goal of this node
                     try:
                         Twf = self.tf_buffer.lookup_transform('world',
                                                               'face',
@@ -199,68 +205,19 @@ class FaceDetection:
                             tf2_ros.ExtrapolationException):
                         continue
 
+                    # Publish face pose so state machine can read and send to mover
                     self.pose_pub.publish(Pose(position=Point(
                         x=Twf.transform.translation.x,
                         y=Twf.transform.translation.y,
                         z=Twf.transform.translation.z)))
 
-                    # print(Twf)
-
-                    # Twf = self.tf_listener.lookupTransform('/face', '/world', rospy.Time(0))
-
-                    # print(Twf)
-
-                    # Tbf = Tbr * Trf
-
-                    # Twb = self.tf_listener.lookupTransform('/head_camera', '/world', rospy.Time(0))
-
-                    # Twf = Twb * Tbf
-
-                    # print(Twf)
-
-                    # Twf_stamped = TransformStamped()
-
-                    # Twf_stamped.header.stamp = rospy.Time.now()
-                    # Twf_stamped.header.frame_id = "world"
-                    # Twf_stamped.child_frame_id = "face"
-                    # Twf_stamped.transform = Twf
-
-                    # self.tf_broadcaster.sendTransform(Twf_stamped)
-
-                    # face_pose = Pose(position=Point(x=self.forehead_depth * k,
-                    #                                 y=self.forehead_depth * -i,
-                    #                                 z=self.forehead_depth * -j))
-
-                    # # print(face_pose)
-
-                    # face_transform = TransformStamped()
-
-                    # face_transform.header.stamp = rospy.Time.now()
-                    # face_transform.header.frame_id = "camera_aligned_depth_to_color_frame"
-                    # face_transform.child_frame_id = "face"
-                    # face_transform.transform.translation.x = face_pose.position.x
-                    # face_transform.transform.translation.y = face_pose.position.y
-                    # face_transform.transform.translation.z = face_pose.position.z
-                    # face_transform.transform.rotation.x = 0
-                    # face_transform.transform.rotation.y = 0
-                    # face_transform.transform.rotation.z = 0
-                    # face_transform.transform.rotation.w = 1
-
-                    # self.tf_broadcaster.sendTransform(t)
-
             else:
-                # cv2.rectangle(self.incomingFrame, (x, y), (x+w, y+h), (255, 0, 0),
-                #             2)
 
                 self.forehead_x = None
                 self.forehead_y = None
 
             self.lastX = x
             self.lastY = y
-
-        # # # Display the image on the screen
-        # cv2.imshow("Image window", self.incomingFrame)
-        # cv2.waitKey(1)
 
     def depth_callback(self, data):
 
@@ -276,7 +233,7 @@ class FaceDetection:
         if self.forehead_x and self.forehead_y:
 
             self.forehead_depth = self.incomingFrame[self.forehead_y,
-                                                     self.forehead_x] / 1000  # TODO
+                                                     self.forehead_x] / 1000  # original units mm
 
     def camera_info_callback(self, data):
 
@@ -284,10 +241,10 @@ class FaceDetection:
 
 
 def main(args):
+    """ The main function. """
     rospy.init_node('face_detection')
     find_faces = FaceDetection()
     try:
-        # find_faces.loop()
         rospy.spin()
     except KeyboardInterrupt:
         print("Shutting down")
