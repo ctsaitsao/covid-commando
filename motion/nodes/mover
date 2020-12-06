@@ -70,7 +70,7 @@ class Mover(object):
         # Make right arm to go neutral position
         print(f"{CYAN}Going to neutral pose...") 
         
-        self.reset()
+        # self.reset()
 
         # Go to left side tucked 
         # angles = [0.3508981052287884, -0.6312330942148477, -0.13882526130362993, 2.0447963902512565, -0.1729563338340804, -1.119805975156352, 0.10584467436409355]
@@ -290,21 +290,42 @@ class Mover(object):
         plan, fraction = planning(target_pose)
         print(f"{CYAN} First Plan: {fraction} ")
         
-
+        joint_target_pose_right = self.right_arm_group.get_current_joint_values()
+    
         if fraction<0.90:
             # Person on left side
             if target_pose.position.y <0:
                 print(f"Going to left saved position") #Tucked
-                angles = [0.3508981052287884, -0.6312330942148477, -0.13882526130362993, 2.0447963902512565, -0.1729563338340804, -1.119805975156352, 0.10584467436409355]
+                joint_target_pose_right[0] = 0.3508981052287884 #s0
+                joint_target_pose_right[1] = -0.6312330942148477    #s1
+                joint_target_pose_right[2] = -0.13882526130362993  #e0
+                joint_target_pose_right[3] = 2.0447963902512565 #e1
+                joint_target_pose_right[4] = -0.1729563338340804 #w0
+                joint_target_pose_right[5] = -1.119805975156352 #w1
+                joint_target_pose_right[6] =  0.10584467436409355#w2
+                # angles = [0.3508981052287884, -0.6312330942148477, -0.13882526130362993, 2.0447963902512565, -0.1729563338340804, -1.119805975156352, 0.10584467436409355]
                 
             # Person on right side 
             else:
                 print(f"Going to right saved position") #Tucked
-                angles = [1.24674288535387, -0.6615292147755847, 1.0200972239438002, 0.7363107781849986, 0.8153107887610974, -1.14473316295949, 1.4143302864303515]
+                joint_target_pose_right[0] = 1.24674288535387 #s0
+                joint_target_pose_right[1] = -0.6615292147755847   #s1
+                joint_target_pose_right[2] = 1.0200972239438002  #e0
+                joint_target_pose_right[3] = 0.7363107781849986 #e1
+                joint_target_pose_right[4] = 0.8153107887610974#w0
+                joint_target_pose_right[5] = -1.14473316295949 #w1
+                joint_target_pose_right[6] =  1.4143302864303515#w2
+                # angles = [1.24674288535387, -0.6615292147755847, 1.0200972239438002, 0.7363107781849986, 0.8153107887610974, -1.14473316295949, 1.4143302864303515]
             
-            names = self.right_arm_limb.joint_names()
-            positions = dict(zip(names,angles))
-            self.right_arm_limb.move_to_joint_positions(positions)
+
+            self.right_arm_group.go(joint_target_pose_right, wait=True)
+            self.right_arm_group.stop()
+            self.right_arm_group.clear_pose_target(end_effector_link="right_gripper")
+
+            # names = self.right_arm_limb.joint_names()
+            # positions = dict(zip(names,angles))
+            # self.right_arm_limb.move_to_joint_positions(positions)
+
             # self.right_arm_limb.move_to_neutral()
 
             plan, fraction = planning(target_pose)
@@ -472,7 +493,6 @@ class Mover(object):
         """
         Moves the right arm to a default home state
         """
-        print('RESETTTOGKSGMSDFDF')
 
         self.right_arm_limb.move_to_neutral()
 

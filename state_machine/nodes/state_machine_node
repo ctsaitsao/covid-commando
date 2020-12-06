@@ -48,11 +48,13 @@ class StateMachine:
         rospy.wait_for_service('/go_to_pose')
         rospy.wait_for_service('/blink_arm_light')
         rospy.wait_for_service('/go_to_joint_angle')
+        rospy.wait_for_service('/go_to_pose_left')
 
         self.go_to_neutral = rospy.ServiceProxy('/go_to_joint_angle', Empty)
         # self.get_pose = rospy.ServiceProxy('/get_pose', GetPose)
         self.go_to_pose = rospy.ServiceProxy('/go_to_pose', GoToPose)
         self.blink = rospy.ServiceProxy('/blink_arm_light', Trigger)
+        self.go_to_pose_left = rospy.ServiceProxy('/go_to_pose_left', GoToPose)
 
         # State publisher 
         self.state_pub = rospy.Publisher('/state', String, queue_size=10)
@@ -86,6 +88,8 @@ class StateMachine:
     
         # Timer callback 
         self.timer = rospy.Timer(rospy.Duration(1/self.rate), self.timer_callback)
+
+        self.go_to_neutral()
         
 
     def set_state_callback(self, req):
@@ -118,7 +122,7 @@ class StateMachine:
         base_image = cv2.imread(path)
         outputString = temp.data + "C"
         # outputString = "36.9" + "C"
-        cv2.putText(base_image, outputString , (300, 490), cv2.FONT_HERSHEY_DUPLEX, 5.0, (0, 0, 0), 4)
+        cv2.putText(base_image, outputString , (290, 535), cv2.FONT_HERSHEY_DUPLEX, 5.0, (0, 0, 0), 4)
         cv2.imwrite(self.images_dir + 'temp.png',base_image)
 
         img = cv2.imread(self.images_dir + 'temp.png')
@@ -187,7 +191,11 @@ class StateMachine:
 
                 self.prev_state = self.state
 
-                self.state = 'take_temperature' if res.success else 'search_for_face'
+                if res.success:
+                    self.state = 'take_temperature'
+                else:
+                    self.go_to_neutral()
+                    self.state = 'take_temperature'
 
             elif self.state == 'take_temperature':
                 self.update_screen()
@@ -214,15 +222,19 @@ class StateMachine:
                 """
                     Update /digit_reading to latch publisher??
                 """
+                print('came in display_result')
                 temp_level = rospy.wait_for_message('/temperature_reading', String)
-                temp = rospy.wait_for_message('/digit_reading',String)
+                temp = rospy.wait_for_message('/digit_reading', String)
                 print(temp_level.data, temp.data)
                 self.update_screen_temp(temp, temp_level)
                 # self.update_screen_temp()
                 # Wait for 10s or some user action, then return to search_for_face
                 rospy.sleep(2)
-                self.go_to_neutral()
-                self.go_to_pose_left(x= 0.22979708015918732, y= 1.0588802099227905, z= -0.08750268816947937, r=3.096444845199585,p=0.015665998682379723, yaw=-1.6834826469421387)
+                if temp_level.data == "GREEN":
+                    self.go_to_pose_left(x= 0.22979708015918732, y= 1.0588802099227905, z= -0.08750268816947937, r=3.096444845199585,p=0.015665998682379723, yaw=-1.6834826469421387)
+                    self.go_to_neutral()
+                elif temp_level.data == "RED":
+                    self.go_to_neutral()
                 self.prev_state = self.state
                 print("State machine end")
                 self.state = 'search_for_face'

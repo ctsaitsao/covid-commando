@@ -2,7 +2,7 @@
 <package format="2">
   <name>vision</name>
   <version>0.0.0</version>
-  <description>vision_package</description>
+  <description>Vision tasks of the COVID Commando project.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -60,6 +60,11 @@
   <depend>sensor_msgs</depend>
   <depend>image_geometry</depend>
   <depend>std_srvs</depend>
+  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>apriltag_ros</exec_depend>
+  <exec_depend>rviz</exec_depend>
+  <exec_depend>image_view</exec_depend>
+  <exec_depend>baxter_tools</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

@@ -1,0 +1,11 @@
+# Window for detecting color of thermometer:
+centroidX: 720
+centroidY: 410     
+windowSizeX: 50
+windowSizeY: 25
+
+# Window for detecting digits:
+ROIx: 640 #630
+ROIy: 374 # 372
+ROIw: 152 #150
+ROIh: 64 # 66 
