@@ -1,18 +1,24 @@
 #!/usr/bin/env python
 
 """
-Node causes interbotix arm to do planning tasks.
-SERVICES:
-    reset (arm_move/Reset): resets position of realsense box and sends robot
-                            to Home position
-    step (arm_move/Step): plans and moves robot to specified pose, stores
-                        successful waypoints, and returns error code of
-                        success/failure of plan
-    follow (arm_move/Follow): moves robot through saved waypoints, with
-                            option to loop
-    get_pose (arm_move/GetPose): gets current end-effector pose of robot
-PARAMETERS:
-    /waypoints: poses that robot follows, includes gripper status data
+Node uses RealSense RGB-D lenses' data to detect a person's face and, once the
+person stands still, estimate their forehead's 3D pose in space.
+
+SUBSCRIBERS:
+    /camera/color/image_raw (sensor_msgs/Image): RealSense RGB color data
+
+    /camera/aligned_depth_to_color/image_raw (sensor_msgs/Image): RealSense depth data,
+                                                         aligned to the color lens' frame
+
+    /state (std_msgs/String): state of the overall control loop
+
+    /camera/color/camera_info (sensor_msgs/CameraInfo): intrinsic and extrinsic params of
+                                                        RealSense RGB color camera
+
+PUBLISHERS:
+    /face_pose (geometry_msgs/Pose): goal pose of person's forehead
+
+    /found_face (std_msgs/Bool): whether or not a face is currently detected
 """
 
 import sys
@@ -31,7 +37,6 @@ from image_geometry import PinholeCameraModel
 class FaceDetection:
 
     def __init__(self):
-
         # Load cascade configuration files
         self.faceCascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -78,18 +83,20 @@ class FaceDetection:
         self.lastY = 0
 
     def state_callback(self, data):
-        """ Used as the 'state' callback.
+        """ Used as the state callback.
 
             Args:
-               data (std_msgs/String): the current state
+               data (std_msgs/String): the current state of control loop
         """
         self.state = data.data
 
     def image_callback(self, data):
-        """
-        Callback for image subscriber
-        """
+        """ Used as the RGB image callback. Most of the image processing and
+            pose estimation happens here.
 
+            Args:
+               data (sensor_msgs/Image): RGB image data from RealSense color camera
+        """
         # Attempt to pull frame from ROS message
         try:
             # Pull image as an 8-bit RGB image
@@ -220,7 +227,11 @@ class FaceDetection:
             self.lastY = y
 
     def depth_callback(self, data):
+        """ Used as the depth camera data callback.
 
+            Args:
+               data (sensor_msgs/Image): depth data from RealSense depth sensor
+        """
         # Attempt to pull frame from ROS message
         try:
             # Pull image as an 8-bit RGB image
@@ -236,7 +247,12 @@ class FaceDetection:
                                                      self.forehead_x] / 1000  # original units mm
 
     def camera_info_callback(self, data):
+        """ Used as the RGB camera info callback.
 
+            Args:
+               data (sensor_msgs/CameraInfo): meta information of RealSense
+                                            RGB color camera
+        """
         self.camera_info = data
 
 
