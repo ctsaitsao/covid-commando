@@ -82,7 +82,24 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 6. `roslaunch state_machine state_machine.launch` 
 
 ## Nodes and Launchfiles 
+Nodes:
+- State Machine 
+  - state_machine_node
+- Vision
+  - face_detection 
+  - read_digit 
+  - read_temperature
+- Motion Planning 
+  - mover
 
+Launchfiles:
+- State Machine 
+  - state_machine.launch
+- Vision
+  - face_detection.launch
+  - temperature_detection.launch
+- Motion Planning 
+  - mover.launch
 
 
 
