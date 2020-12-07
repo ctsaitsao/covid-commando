@@ -77,7 +77,7 @@ The motion package handles all Baxter robot arm controls.<br>
 
 
 ### Thermometer Interface
-
+The thermometer was activated by an 
 
 
 ## Startup Guide 
