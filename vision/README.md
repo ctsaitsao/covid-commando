@@ -12,7 +12,7 @@ The vision package handles all Baxter vision tasks, which include facial detecti
 - `face_detection.launch`: Launches `face_detection` node, `rs_camera.launch` (ROS's interface with the RealSense), and RViz.
 - `temperature_detection.launch`: Launches `read_temperature` and `read_digit` nodes from this package as well as `camera_control`, a Baxter node that is used to configure the right arm camera.
 
-## Usage for motion package only
+## Usage for vision package only
 To launch: <br/>
 ```Shell
 roslaunch vision face_detection.launch

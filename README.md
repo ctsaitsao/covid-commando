@@ -1,5 +1,5 @@
 # Covid Commando Project 
-## Authors: Anuj Karnik, Christopher Tsai, Di Wu, Tomasz Trzpit 
+### Authors: Anuj Karnik, Christopher Tsai, Di Wu, Tomasz Trzpit 
 
 
 ## Overview 
@@ -8,8 +8,7 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 ```Shell
 ├── CMakeLists.txt
 ├── hardware_io
-│   └── thermometer_controller
-│       └── thermometer_controller.ino
+│   └── thermometer_controller.ino
 ├── motion
 │   ├── CMakeLists.txt
 │   ├── config
