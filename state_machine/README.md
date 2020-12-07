@@ -4,6 +4,7 @@
 The state machine is the main node which is used to launch the enitre program.
 
 ## Diagram
+ The figure below shows all states and the actions to transition between states. 
 ![state machine img](../images/state_machine_web.png)
 
 ## Nodes
