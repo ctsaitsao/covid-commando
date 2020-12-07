@@ -7,6 +7,7 @@
         - '/reset'
         - '/get_pose'
         - '/go_to_pose'
+        - '/go_to_pose_left'
         - '/get_joint_angles'
         - '/go_to_joint_angle'
 
@@ -66,6 +67,11 @@ class Mover(object):
 
         #Go to Joint angle service
         rospy.Service('/go_to_joint_angle',Empty, self.move_to_joint)
+
+        #Go to Pose service for left arm
+        rospy.Service('/go_to_pose_left', GoToPose, self.go_to_pose_left_callback)
+        rospy.wait_for_service('/go_to_pose_left')
+        self.go_to_pose_left = rospy.ServiceProxy('/go_to_pose_left', GoToPose)
 
         # Enable Robot 
         print("Getting robot state... ")
@@ -303,6 +309,36 @@ class Mover(object):
         fraction = self.cartesian_plan_execute(self.right_arm_group,pose_goal.pose)
         
         return GoToPoseResponse(success=fraction > 0.50)
+
+        def go_to_pose_left_callback(self, req):
+            print(f"{CYAN} Go to pose called!")
+        """
+            Callback funtion for the go_to_pose_left service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
+            Args:
+                req (arm_move/GoToPoseRequest):
+        
+            Returns:
+                (arm_move/GoToPoseResponse): Bool to indicate success or failure
+        """
+        pose_goal = PoseStamped()
+        pose_goal.header.frame_id = req.frame
+        pose_goal.pose.position.x = req.x
+        pose_goal.pose.position.y = req.y
+        pose_goal.pose.position.z = req.z
+
+        quat = quaternion_from_euler(req.r, req.p, req.yaw)
+
+        pose_goal.pose.orientation.x = quat[0]
+        pose_goal.pose.orientation.y = quat[1]
+        pose_goal.pose.orientation.z = quat[2] 
+        pose_goal.pose.orientation.w = quat[3]
+
+        print(f"{CYAN}x:{pose_goal.pose.position.x},y:{pose_goal.pose.position.y}")
+        fraction = self.cartesian_plan_execute(self.left_arm_group,pose_goal.pose)
+
+        return GoToPoseResponse(success=fraction > 0.50)
+
+
 
 
 def main():
