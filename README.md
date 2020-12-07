@@ -1,5 +1,5 @@
 # Covid Commando Project 
-## Authors: Anuj Karnik, Christopher Tsai, Di Wu, Tomasz Trzpit 
+### Authors: Anuj Karnik, Christopher Tsai, Di Wu, Tomasz Trzpit 
 
 
 ## Overview 
