@@ -66,7 +66,6 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 
 ### State Machine 
 The state machine is the main controller that launches the program and determines robot actions for its current state. <br>
-The figure above shows all states and the actions to transition between states. <br>
 [More info on state machine package](state_machine/README.md) <br>
 
 ### Facial Detection and Temperature Reading
