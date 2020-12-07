@@ -135,7 +135,7 @@ class FaceDetection:
             self.dxAverage = sum(self.dx)/len(self.dx)
             self.dyAverage = sum(self.dy)/len(self.dy)
 
-            # Draw a blue frame
+            # If detected face is stationary (person stands still)
             if (self.dxAverage < self.lockonThreshold) and \
                     (self.dxAverage < self.lockonThreshold):
 
@@ -146,7 +146,7 @@ class FaceDetection:
                 # If forehead data has been received
                 if self.forehead_depth:
 
-                    # Initialze camera model and calibration params
+                    # Initialize camera model and calibration params
                     p = PinholeCameraModel()
                     p.fromCameraInfo(self.camera_info)
 
@@ -201,22 +201,23 @@ class FaceDetection:
                                  + Trf.translation.z**2) < 4:
                         self.tf_broadcaster.sendTransform(Trf_stamped)
 
-                    # tf gives us transform from world to face (face pose in world)
-                    # which is the final goal of this node
-                    try:
-                        Twf = self.tf_buffer.lookup_transform('world',
-                                                              'face',
-                                                              rospy.Time())
-                    except (tf2_ros.LookupException,
-                            tf2_ros.ConnectivityException,
-                            tf2_ros.ExtrapolationException):
-                        continue
+                        # tf gives us transform from world to face (face pose in world)
+                        # which is the final goal of this node
+                        try:
+                            Twf = self.tf_buffer.lookup_transform('world',
+                                                                'face',
+                                                                rospy.Time())
 
-                    # Publish face pose so state machine can read and send to mover
-                    self.pose_pub.publish(Pose(position=Point(
-                        x=Twf.transform.translation.x,
-                        y=Twf.transform.translation.y,
-                        z=Twf.transform.translation.z)))
+                            # Publish face pose so state machine can read and send to mover
+                            self.pose_pub.publish(Pose(position=Point(
+                                x=Twf.transform.translation.x,
+                                y=Twf.transform.translation.y,
+                                z=Twf.transform.translation.z)))
+
+                        except (tf2_ros.LookupException,
+                                tf2_ros.ConnectivityException,
+                                tf2_ros.ExtrapolationException):
+                            continue
 
             else:
 
