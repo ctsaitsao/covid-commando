@@ -62,14 +62,19 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 
 ## System Architecture 
 
+### State Machine 
+[State machine package](state_machine/README.md)
+
+
 ### Facial Detection and Temperature Reading
 [Vision package](vision/README.md)
 
 ### Motion Planning 
 [Motion package](motion/README.md)
 
-### State Machine 
-[State machine package](state_machine/README.md)
+### Thermometer Interface
+
+
 
 ## Startup Guide 
 1. Create a workspace <br>
@@ -83,22 +88,22 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 ## Nodes and Launchfiles 
 Nodes:
 - State Machine 
-  - state_machine_node
+  - [state_machine_node](state_machine/nodes/state_machine_node)
 - Vision
-  - face_detection 
-  - read_digit 
-  - read_temperature
+  - [face_detection](vision/nodes/face_detection)
+  - [read_digit](vision/nodes/read_digit) 
+  - [read_temperature](vision/nodes/read_temperature)
 - Motion Planning 
-  - mover
+  - [mover](motion/nodes/mover)
 
 Launchfiles:
 - State Machine 
-  - state_machine.launch
+  - [state_machine.launch](state_machine/launch/state_machine.launch)
 - Vision
-  - face_detection.launch
-  - temperature_detection.launch
+  - [face_detection.launch](vision/launch/face_detection.launch)
+  - [temperature_detection.launch](vision/launch/temperature_detection.launch)
 - Motion Planning 
-  - mover.launch
+  - [mover.launch](motion/launch/mover.launch)
 
 
 
