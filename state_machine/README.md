@@ -2,6 +2,7 @@
 
 ## Overview:
 The state machine is the main node which is used to launch the enitre program.
+![state machine img](../images/state_machine_web.png)
 
 ## Nodes:
 `state_machine_node`: uses services provided by other nodes to check and update robot state. =
