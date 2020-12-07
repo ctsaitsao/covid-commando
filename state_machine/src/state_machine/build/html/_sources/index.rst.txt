@@ -10,8 +10,7 @@ Welcome to Baxter Screen Display's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-.. automodule:: state_machine
-   :members:
+module 
 
 Indices and tables
 ==================
