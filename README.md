@@ -9,19 +9,19 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 ```Shell
 ├── CMakeLists.txt
 ├── hardware_io
-│   └── thermometer_controller.ino
+│   └── thermometer_controller.ino - Arduino code for thermometer circuit
 ├── motion
 │   ├── CMakeLists.txt
 │   ├── config
 │   │   └── coordinates.yaml
 │   ├── launch
-│   │   └── mover.launch
+│   │   └── mover.launch - contains everything for moving arm to different poses
 │   ├── nodes
-│   │   └── mover
+│   │   └── mover - provides services for motion planning
 │   ├── package.xml
 │   └── srv
-│       ├── GetPose.srv
-│       └── GoToPose.srv
+│       ├── GetPose.srv - acquires current pose data 
+│       └── GoToPose.srv - plans and executes trajectory to specified pose
 ├── README.md
 ├── state_machine
 │   ├── CMakeLists.txt
@@ -34,9 +34,9 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 │   │   ├── temp_normal.png
 │   │   └── temp.png
 │   ├── launch
-│   │   └── state_machine.launch
+│   │   └── state_machine.launch - main launchfile for control loop that switches between states
 │   ├── nodes
-│   │   └── state_machine_node
+│   │   └── state_machine_node - communicates with all other nodes and calls services for different tasks
 │   ├── package.xml
 │   ├── README.md
 │   ├── src
@@ -44,19 +44,19 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 │   │       ├── displays.py
 │   │       └── __init__.py
 │   └── srv
-│       └── SetState.srv
+│       └── SetState.srv - service for switching to specified state
 └── vision
     ├── CMakeLists.txt
     ├── config
     │   ├── face_detection.rviz
     │   └── thermometer_calibration.yaml
     ├── launch
-    │   ├── face_detection.launch
-    │   └── temperature_detection.launch
+    │   ├── face_detection.launch - contains face_detection node and realsense camera interface
+    │   └── temperature_detection.launch - launches nodes for temperature reading
     ├── nodes
-    │   ├── face_detection
-    │   ├── read_digit
-    │   └── read_temperature
+    │   ├── face_detection - detects face and sends pose estimate of person's forehead
+    │   ├── read_digit - detects specific temperature digits 
+    │   └── read_temperature - detects whether temperature is normal or high
     ├── package.xml
     └── README.md 
 ```
