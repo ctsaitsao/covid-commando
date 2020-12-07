@@ -114,7 +114,6 @@ catkin_package(
     geometry_msgs
     message_runtime
     moveit_commander
-    geometry_msgs
     rospy
     
 

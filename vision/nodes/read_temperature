@@ -5,14 +5,13 @@ Node uses an image from Baxter hand camera feed to identify whether the IR therm
 shown a green (safe temperature) result or red (unsafe temperature) result on the LED screen
 
 SUBSCRIBERS:
-    /cameras/right_hand_camera (sensor_msgs/Image): video feed from Baxter right hand camera
+    /cameras/right_hand_camera/image (sensor_msgs/Image): video feed from Baxter right hand camera
+
     /state (std_msgs/String): state of the overall control loop
 
 PUBLISHERS:
     /temperature_reading (std_msgs/String): color value from thermometer (GREEN, RED, or CLEAR)
-
 """
-
 
 import sys
 import rospy
@@ -22,7 +21,6 @@ import numpy as np
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from geometry_msgs.msg import Pose
 
 
 class ReadTemperature:
@@ -65,7 +63,7 @@ class ReadTemperature:
 
 
     def state_callback(self, data):
-        """ Used as the 'state' callback.
+        """ Used as the state callback.
 
             Args:
                data (std_msgs/String): the current state
@@ -74,10 +72,11 @@ class ReadTemperature:
 
 
     def image_callback(self, data):
+        """ Used as the RGB image callback.
+
+            Args:
+               data (sensor_msgs/Image): RGB image data from Baxter right hand camera
         """
-        Callback for image subscriber
-        """
-        
         # Attempt to pull frame from ROS message and convert using CvBridge
         try:
             # Pull image as an 8-bit RGB image

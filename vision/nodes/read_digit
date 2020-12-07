@@ -13,13 +13,9 @@ PUBLISHERS:
     /digit_reading (std_msgs/String): temperature value read from IR thermometer
 """
 
-
 import cv2
-import numpy
 import rospy
 from cv_bridge import CvBridge, CvBridgeError
-from imutils.perspective import four_point_transform
-from imutils import contours
 import imutils
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
