@@ -64,6 +64,19 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 
 ## System Architecture 
 
+
+
+## Startup Guide 
+1. Create a workspace <br>
+   `mkdir -p ws/src`
+2. Clone this repo into the src folder
+3. `catkin make` in the ws folder
+4. `source devel/setup.bash` in the ws folder
+5. Connect to Baxter robot 
+6. `roslaunch state_machine state_machine.launch` 
+
+## Nodes and Launchfiles 
+
 ### Facial Detection
 
 ### Motion Planning 
@@ -72,11 +85,6 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 
 ### State Machine 
 
-
-## Startup Guide 
-
-
-## Nodes and Launchfiles 
 
 
 ## Videos 
