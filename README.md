@@ -62,13 +62,13 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 ```
 
 ## System Architecture 
+### State Machine
+
 ### Facial Detection
 
 ### Motion Planning 
 
 ### Temperature Reading 
-
-### State Machine 
 
 
 ## Startup Guide 
