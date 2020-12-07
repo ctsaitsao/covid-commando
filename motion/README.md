@@ -15,7 +15,7 @@ Main Services:<br/>
       - <tab/> Called after results are displayed, moves left arm out of the way to let a subejct with normal temperature pass.
   
 ## Launchfile - mover.launch 
-    Launches mover node, moveit node, joint trajectory server, loads saved coordinate parameters, and optionally launches gazebo if using simulation.
+Launches mover node, moveit node, joint trajectory server, loads saved coordinate parameters, and optionally launches gazebo if using simulation.
 
 ## Usage for motion package only
 To launch: <br/>
