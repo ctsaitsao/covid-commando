@@ -9,8 +9,8 @@ The vision package handles all Baxter vision tasks, which include facial detecti
 - `read_digit`: Reads an image frame from a ROS image_raw message, allows the user to highlight a region of interest (capture window), then attempts to read a 7-segment LED display using image segmentation.
   
 ## Launchfiles
--`face_detection.launch`: Launches `face_detection` node, `rs_camera.launch` (ROS's interface with the RealSense), and RViz.
--`temperature_detection.launch`: Launches `read_temperature` and `read_digit` nodes from this package as well as `camera_control`, a Baxter node that is used to configure the right arm camera.
+- `face_detection.launch`: Launches `face_detection` node, `rs_camera.launch` (ROS's interface with the RealSense), and RViz.
+- `temperature_detection.launch`: Launches `read_temperature` and `read_digit` nodes from this package as well as `camera_control`, a Baxter node that is used to configure the right arm camera.
 
 ## Usage for motion package only
 To launch: <br/>
