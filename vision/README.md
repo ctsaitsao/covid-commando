@@ -21,7 +21,9 @@ roslaunch vision temperature_detection.launch
 
 ## Camera Calibration (Extrinsic)
 The `config/camera_calibration.yaml` file contains the physically measured translation components of Twr, the pose of the RealSense RGB camera's frame in the Baxter world frame.
-![camera_calibration_img](images/camera_calibration.png)
+<br>
+<br>
+<img src="../images/camera_calibration.png" width="400">
 
 ## Thermometer Calibration
 The `config/thermometer_calibration.yaml` file contains pixel values for the rectangular area that is considered when detecting temperature level (green/red) and value (digits). These values must be edited every time the thermometer gun is mounted to the robot.
