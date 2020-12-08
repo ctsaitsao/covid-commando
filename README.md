@@ -112,9 +112,9 @@ Launchfiles:
 ```
 
 ## Videos 
-- Final demo: https://www.youtube.com/watch?v=Jk9b8oqRLSs&t=52s
-- Demos of other stages of the project can be found in the Covid Commando YouTube channel: \
-https://www.youtube.com/channel/UCiMYOwYpeRzvlzgUHT3ue5A
+- [Final demo](https://www.youtube.com/watch?v=Jk9b8oqRLSs&t=52s)
+- [Demos of other stages of the project can be found in the Covid Commando YouTube channel](https://www.youtube.com/channel/UCiMYOwYpeRzvlzgUHT3ue5A)
 
 ## Miscellaneous
-[Sphinx documentation for display python package](state_machine/src/state_machine/build/html/index.html)
+- [Project presentation](https://docs.google.com/presentation/d/1yVmDlAsF11Xsh7QFTZLNg_VQJcgwfDyqsnCXJ79oP8k/edit?usp=sharing)
+- [Sphinx documentation for display python package](state_machine/src/state_machine/build/html/index.html)
