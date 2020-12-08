@@ -1,7 +1,7 @@
-# Hardware Input/Output:
+# Hardware Input/Output
 
-## Overview:
+## Overview
 This Arduino code controls the relay between the Baxter's arm-mounted lights and the IR thermometer's internal trigger switch.
 
-## Circuit Diagram:
+## Circuit Diagram
 ![Hardware IO Circuit Diagram](../images/circuit_diagram.png)
