@@ -74,6 +74,11 @@ class FaceDetection:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
+        # RealSense camera extrinsic calibration
+        self.Twr_x = rospy.get_param('/Twr_x')
+        self.Twr_y = rospy.get_param('/Twr_y')
+        self.Twr_z = rospy.get_param('/Twr_z')
+
         # Initialize variables needed for opencv face detection loop
         self.dx = []
         self.dy = []
@@ -160,9 +165,9 @@ class FaceDetection:
                     # accuracy was high
                     Twr = Transform(
                             translation=Vector3(
-                                x=0.1,
-                                y=0.03,
-                                z=0.87),
+                                x=self.Twr_x,
+                                y=self.Twr_y,
+                                z=self.Twr_z),
                             rotation=Quaternion(
                                 x=0,
                                 y=0,

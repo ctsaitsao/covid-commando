@@ -1,0 +1,4 @@
+# Twr = pose of RealSense camera in Baxter world frame
+Twr_x: 0.10
+Twr_y: 0.03 
+Twr_z: 0.87

@@ -6,6 +6,8 @@
         <arg name="align_depth" value="true"/>
     </include>
 
+    <rosparam command="load" file="$(find vision)/config/camera_calibration.yaml"/>
+
     <node name="face_detection" pkg="vision" type="face_detection" output="screen"/>
 
     <node name="rviz" type="rviz" pkg="rviz" args="-d $(find vision)/config/face_detection.rviz" if="$(arg launch_rviz)"/>
