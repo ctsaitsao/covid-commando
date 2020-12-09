@@ -1,0 +1,21 @@
+actions: []
+authors: ''
+brief: ''
+bugtracker: ''
+depends:
+- rospy
+- message_runtime
+- sensor_msgs
+- message_generation
+- catkin
+- std_msgs
+- geometry_msgs
+description: State Machine controls robot states
+license: MIT
+maintainers: Christopher Tsai <christophertsai2020@u.northwestern.edu>
+msgs: []
+package_type: package
+repo_url: ''
+srvs:
+- SetState
+url: ''
