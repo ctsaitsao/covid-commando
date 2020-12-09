@@ -57,9 +57,15 @@ Launchfiles:
 
 ## Complete File Layout
 ```
-├── CMakeLists.txt
+├── CMakeLists.txt -> /opt/ros/noetic/share/catkin/cmake/toplevel.cmake
 ├── hardware_io
+│   ├── README.md
 │   └── thermometer_controller.ino - Arduino code for thermometer circuit
+├── images
+│   ├── architecture.png
+│   ├── camera_calibration.png
+│   ├── circuit_diagram.png
+│   └── state_machine_web.png
 ├── motion
 │   ├── CMakeLists.txt
 │   ├── config
@@ -69,38 +75,49 @@ Launchfiles:
 │   ├── nodes
 │   │   └── mover - provides services for motion planning
 │   ├── package.xml
+│   ├── README.md
 │   └── srv
 │       ├── GetPose.srv - acquires current pose data 
 │       └── GoToPose.srv - plans and executes trajectory to specified pose
 ├── README.md
 ├── state_machine
 │   ├── CMakeLists.txt
-│   ├── images
-│   │   ├── face_found.png
-│   │   ├── move_to_face.png
-│   │   ├── search_for_face.png
-│   │   ├── take_temperature.png
-│   │   ├── temp_high.png
-│   │   ├── temp_normal.png
-│   │   └── temp.png
+│   ├── doc
+│   │   ├── conf.py
+│   │   ├── index.rst
+│   │   ├── modules.rst
+│   │   └── state_machine.rst
 │   ├── launch
 │   │   └── state_machine.launch - main launchfile for control loop that switches between states
 │   ├── nodes
 │   │   └── state_machine_node - communicates with all other nodes and calls services for different tasks
 │   ├── package.xml
 │   ├── README.md
+│   ├── setup.py
 │   ├── src
 │   │   └── state_machine
 │   │       ├── displays.py
-│   │       └── __init__.py
-│   └── srv
-│       └── SetState.srv - service for switching to specified state
+│   │       ├── __init__.py
+│   │       └── __pycache__
+│   │           ├── displays.cpython-38.pyc
+│   │           └── __init__.cpython-38.pyc
+│   ├── srv
+│   │   └── SetState.srv - service for switching to specified state
+│   └── state_images
+│       ├── face_found.png
+│       ├── move_to_face.png
+│       ├── search_for_face.png
+│       ├── take_temperature.png
+│       ├── temp_high.png
+│       ├── temp_normal.png
+│       └── temp.png
 └── vision
     ├── CMakeLists.txt
     ├── config
+    │   ├── camera_calibration.yaml
     │   ├── face_detection.rviz
     │   └── thermometer_calibration.yaml
-    ├── launch
+    ├── launch 
     │   ├── face_detection.launch - contains face_detection node and realsense camera interface
     │   └── temperature_detection.launch - launches nodes for temperature reading
     ├── nodes
@@ -108,13 +125,12 @@ Launchfiles:
     │   ├── read_digit - detects specific temperature digits 
     │   └── read_temperature - detects whether temperature is normal or high
     ├── package.xml
-    └── README.md 
+    └── README.md
 ```
-
 ## Videos 
 - [Final demo](https://www.youtube.com/watch?v=Jk9b8oqRLSs&t=52s)
 - [Demos of other stages of the project can be found in the Covid Commando YouTube channel](https://www.youtube.com/channel/UCiMYOwYpeRzvlzgUHT3ue5A)
 
 ## Miscellaneous
 - [Project presentation](https://docs.google.com/presentation/d/1yVmDlAsF11Xsh7QFTZLNg_VQJcgwfDyqsnCXJ79oP8k/edit?usp=sharing)
-- [Sphinx documentation for display python package](state_machine/src/state_machine/build/html/index.html)
+- Build Sphinx documentation for state_machine python package by running `rosdoc_lite .` from the state_machine folder 
