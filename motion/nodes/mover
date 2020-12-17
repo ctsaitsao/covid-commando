@@ -310,8 +310,7 @@ class Mover(object):
         
         return GoToPoseResponse(success=fraction > 0.50)
 
-        def go_to_pose_left_callback(self, req):
-            print(f"{CYAN} Go to pose called!")
+    def go_to_pose_left_callback(self, req):
         """
             Callback funtion for the go_to_pose_left service. Takes the transforms/ coordinates from the vision package and directs the arm to go to the coordinates
             Args:
@@ -320,6 +319,8 @@ class Mover(object):
             Returns:
                 (arm_move/GoToPoseResponse): Bool to indicate success or failure
         """
+        print(f"{CYAN} Go to pose called!")
+        
         pose_goal = PoseStamped()
         pose_goal.header.frame_id = req.frame
         pose_goal.pose.position.x = req.x
@@ -337,8 +338,6 @@ class Mover(object):
         fraction = self.cartesian_plan_execute(self.left_arm_group,pose_goal.pose)
 
         return GoToPoseResponse(success=fraction > 0.50)
-
-
 
 
 def main():
