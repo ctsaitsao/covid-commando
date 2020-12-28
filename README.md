@@ -1,5 +1,6 @@
 # Covid Commando Project 
 ### Authors: Anuj Karnik, Christopher Tsai, Di Wu, Tomasz Trzpit 
+Final project for ME 495: Embedded Systems in Robotics, Northwestern University, Fall 2020.
 
 
 ## Overview 
