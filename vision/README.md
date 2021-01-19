@@ -19,7 +19,7 @@ roslaunch vision face_detection.launch
 roslaunch vision temperature_detection.launch
 ```
 
-## Camera Calibration (Extrinsic)
+## Camera Calibration (extrinsic)
 The `config/camera_calibration.yaml` file contains the physically measured translation components of Twr, the pose of the RealSense RGB camera's frame in the Baxter world frame.
 <br>
 <br>
@@ -28,7 +28,7 @@ The `config/camera_calibration.yaml` file contains the physically measured trans
 ## Thermometer Calibration
 The `config/thermometer_calibration.yaml` file contains pixel values for the rectangular area that is considered when detecting temperature level (green/red) and value (digits). These values must be edited every time the thermometer gun is mounted to the robot.
 
-## Face Detection pseudocode
+## Face Detection Pseudocode
 ```
 1. Initialize CvBridge
 2. Subscribe to aligned_depth_to_color/image_raw
@@ -42,7 +42,7 @@ The `config/thermometer_calibration.yaml` file contains pixel values for the rec
 10.    Pass face centroid x,y into depth transform
 ```
 
-## Pose Estimation pseudocode
+## Pose Estimation Pseudocode
 ```
 1. While faces are detected:
 2.   If detected face is stationary (person stands still):
@@ -58,7 +58,7 @@ The `config/thermometer_calibration.yaml` file contains pixel values for the rec
          to mover node
 ```
 
-## Temperature Level Recognition pseudocode
+## Temperature Level Recognition Pseudocode
 ```
 1. Subscribe to wrist camera image
 2. Use CvBridge to convert ROS image message to CV2 image 
@@ -72,7 +72,7 @@ The `config/thermometer_calibration.yaml` file contains pixel values for the rec
 10.  Publish “CLEAR” to temperature_reading topic
 ```
 
-## Temperature Value Recognition pseudocode
+## Temperature Value Recognition Pseudocode
 ```
 1. Create region of interest
 2. Rotate and correct image through thresholding 
