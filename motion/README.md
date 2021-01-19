@@ -6,18 +6,20 @@ The motion package handles all Baxter robot arm controls. It uses the Moveit pac
 ## Nodes
 - `mover`: Creates the services for robot arm movements. These services are called by the state machine node in the state machine package. Its services are:
    - `/go_to_joint_angle`: Called at startup and end of each cycle. Moves right arm to neutral position with thermometer pointing down, and streatches out left arm to block passage past robot.
-   - `/go_to_pose`: Called after a face pose has been published, moves right arm to a temperature-taking pose.<br/>
+   - `/go_to_pose`: Called after a face pose has been published, moves right arm to a temperature-taking pose.
    - `/go_to_pose_left`: Called after results are displayed, moves left arm out of the way to let a subejct with normal temperature pass.
   
 ## Launchfiles
 - `mover.launch`: Launches mover node, moveit node, joint trajectory server, loads saved coordinate parameters, and optionally launches gazebo if using simulation.
 
-## Usage for motion package only
-To launch: <br/>
-`roslaunch motion motion.launch` 
+## Usage 
+To launch the motion package only: 
+```
+roslaunch motion motion.launch
+```
 
 Options: <br/>
-`gazebo:="true"` to launch Baxter gazebo model.
+- `gazebo:="true"` to launch Baxter gazebo model.
 
 
 ## Motion Planning Algorithm 
@@ -34,11 +36,10 @@ Options: <br/>
 9.   Return fraction
 ```
 
-Our motion planning method was developed to workaround some issues we were facing. The inverse kinematics service does not always succeed in return a path to the target pose. To mitigate this problem, we determined poses that were good positions for the arm to start planning towards a target pose. These poses were found through trial and error, and we saved the joint positions of these poses, so that we can directly go to these poses when we need. In addition, we also added a cylindrical collision object around the Baxter’s head to reduce the likelihood of the arms colliding with the screen.
+The motion planning methodology was developed to work around some of the issues that were faced during development. The inverse kinematics service does not always succeed in returning a path to the target pose. To mitigate this problem, pre-determined poses were added. These poses were good positions for the arm to start in when planning towards a target pose in different areas of the workspace (e.g. left or right of the robot) and were found through trial and error. In addition, a cylindrical collision object was also added around the Baxter’s head to reduce the likelihood of the arms colliding with the screen.
 
-We first compute a cartesian trajectory to the target pose, using moveit’s function, which returns a fraction of how of the trajectory the robot can follow. If this fraction is above 90% we execute this first plan. Otherwise, the arm moves towards one of the two saved poses, depending on where the subject is standing relative to the robot. After reaching the saved pose, we plan another cartesian trajectory and execute this trajectory regardless. If the fraction is below 50%, the state machine will send go back to the searching for face state, and the subject should adjust their position for the robot to try again. 
+A cartesian trajectory to the target pose is first computed using MoveIt!’s functions, which return a percentage of the trajectory that the robot can successfully plan and execute. If this value is above 90%, the first plan is executed. Otherwise, the arm moves towards one of the two saved poses, depending on where the subject is standing relative to the robot. After reaching the saved pose, another cartesian trajectory is planned and executed, regardless of its success percentage. If the percentage is below 50%, the state machine will send go back to the "searching for face" state, and the subject should adjust their position for the robot to try again. 
 
-The two thresholds for the fraction were determine during our testing to ensure both sufficient accuracy and efficiency.
+The two thresholds for the fraction were determined during testing to ensure both sufficient accuracy and efficiency.
 
-Once the arm has reached its target pose, we are now ready for temperature taking.
-
+Once the arm reaches its target pose, the robot is ready for temperature-taking.
