@@ -10,7 +10,7 @@ The figure below shows all states and the actions to transition between states.
 ## Nodes
 `state_machine_node`: Uses services provided by other nodes to check and update robot state.
 
-## Launch File
+## Launchfiles
 `state_machine.launch`: Launches the state_machine_node. 
 
 ## Usage
