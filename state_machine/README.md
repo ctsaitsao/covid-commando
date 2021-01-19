@@ -14,5 +14,7 @@ The figure below shows all states and the actions to transition between states.
 `state_machine.launch`: Launches the state_machine_node. 
 
 ## Usage
-To launch the project <br>
-`roslaunch state_machine state_machine.launch` 
+To launch the whole project:
+```
+roslaunch state_machine state_machine.launch
+```
