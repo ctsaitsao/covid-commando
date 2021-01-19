@@ -10,50 +10,57 @@ The Covid Commando is a Baxter robot that takes a person's temperature and indic
 ![system architecture img](images/architecture.png)
 
 ### State Machine 
-The state machine is the main controller that launches the program and determines robot actions for its current state. <br>
-[More info on state machine package](state_machine/README.md) <br>
+The state machine is the main controller that launches the program and determines robot actions for its current state.
+
+[More info on state machine package.](state_machine/README.md)
 
 ### Facial Detection and Temperature Reading
-The vision package handles facial detection, pose esimtation, and temperature reading. <br>
-[More info on vision package](vision/README.md)<br>
+The vision package handles facial detection, pose esimtation, and temperature reading.
+
+[More info on vision package.](vision/README.md)
 
 ### Motion Planning 
-The motion package handles all Baxter robot arm controls.<br>
-[More info on motion package](motion/README.md) <br>
+The motion package handles all Baxter robot arm controls.
+
+[More info on motion package.](motion/README.md)
 
 
 ### Thermometer Interface
-The thermometer was activated by an Arduino through a wired connection to its switch. The Arduino triggers temperature reading when the Baxter arm lights are turned on.<br>
-[More info on thermometer interface](hardware_io/README.md)
+The thermometer was activated by an Arduino through a wired connection to its switch. The Arduino triggers temperature reading when the Baxter arm lights are turned on.
+
+[More info on thermometer interface.](hardware_io/README.md)
 
 
 ## Startup Guide 
-1. Create a workspace <br>
-   `mkdir -p ws/src`
-2. Clone this repo into the src folder
-3. `catkin make` in the ws folder
-4. `source devel/setup.bash` in the ws folder
-5. Connect to Baxter robot 
-6. `roslaunch state_machine state_machine.launch` 
+1. Create a workspace:
+   ```
+   mkdir -p ws/src
+   ```
+2. Clone this repo into the `src` folder.
+3. `catkin make` in the workspace folder.
+4. `source devel/setup.bash` in the workspace folder.
+5. Connect to Baxter robot.
+6. ```
+   roslaunch state_machine state_machine.launch
+   ```
 
-## Nodes and Launchfiles 
-Nodes:
-- State Machine 
+## Nodes
+- State machine package:
   - [state_machine_node](state_machine/nodes/state_machine_node)
-- Vision
+- Vision package:
   - [face_detection](vision/nodes/face_detection)
   - [read_digit](vision/nodes/read_digit) 
   - [read_temperature](vision/nodes/read_temperature)
-- Motion Planning 
+- Motion planning package:
   - [mover](motion/nodes/mover)
 
-Launchfiles:
-- State Machine 
+## Launchfiles
+- State machine package:
   - [state_machine.launch](state_machine/launch/state_machine.launch)
-- Vision
+- Vision package:
   - [face_detection.launch](vision/launch/face_detection.launch)
   - [temperature_detection.launch](vision/launch/temperature_detection.launch)
-- Motion Planning 
+- Motion planning package:
   - [mover.launch](motion/launch/mover.launch)
 
 ## Complete File Layout
@@ -129,9 +136,9 @@ Launchfiles:
     └── README.md
 ```
 ## Videos 
-- [Final demo](https://www.youtube.com/watch?v=Jk9b8oqRLSs&t=52s)
-- [Demos of other stages of the project can be found in the Covid Commando YouTube channel](https://www.youtube.com/channel/UCiMYOwYpeRzvlzgUHT3ue5A)
+- [Final demo](https://www.youtube.com/watch?v=Jk9b8oqRLSs&t=52s).
+- [Demos of other stages of the project can be found in the Covid Commando YouTube channel](https://www.youtube.com/channel/UCiMYOwYpeRzvlzgUHT3ue5A).
 
 ## Miscellaneous
-- [Project presentation](https://docs.google.com/presentation/d/1yVmDlAsF11Xsh7QFTZLNg_VQJcgwfDyqsnCXJ79oP8k/edit?usp=sharing)
-- Build Sphinx documentation for state_machine python package by running `rosdoc_lite .` from the state_machine folder 
+- [Project presentation](https://docs.google.com/presentation/d/1yVmDlAsF11Xsh7QFTZLNg_VQJcgwfDyqsnCXJ79oP8k/edit?usp=sharing).
+- Build Sphinx documentation for state_machine python package by running `rosdoc_lite .` from the state_machine folder. 
