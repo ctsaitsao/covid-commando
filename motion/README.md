@@ -3,19 +3,14 @@
 ## Overview 
 The motion package handles all Baxter robot arm controls. It uses the Moveit package for motion planning.
 
-## Node - mover 
-The mover node creates the services for robot arm movements. These services are called by the state machine node in the state machine package.
-
-Main Services:<br/>
-- "/go_to_joint_angle"<br/>
-      - Called at startup and end of each cycle. Moves right arm to neutral position with thermometer pointing down, and streatches out left arm to block passage past robot.<br/>
-- "/go_to_pose"<br/>
-      - Called after a face pose has been published, moves right arm to a temperature-taking pose.<br/>
-- "/go_to_pose_left"<br/>
-      - <tab/> Called after results are displayed, moves left arm out of the way to let a subejct with normal temperature pass.
+## Nodes
+- `mover`: Creates the services for robot arm movements. These services are called by the state machine node in the state machine package. Its services are:
+   - `/go_to_joint_angle`: Called at startup and end of each cycle. Moves right arm to neutral position with thermometer pointing down, and streatches out left arm to block passage past robot.
+   - `/go_to_pose`: Called after a face pose has been published, moves right arm to a temperature-taking pose.<br/>
+   - `/go_to_pose_left`: Called after results are displayed, moves left arm out of the way to let a subejct with normal temperature pass.
   
-## Launchfile - mover.launch 
-Launches mover node, moveit node, joint trajectory server, loads saved coordinate parameters, and optionally launches gazebo if using simulation.
+## Launchfiles
+- `mover.launch`: Launches mover node, moveit node, joint trajectory server, loads saved coordinate parameters, and optionally launches gazebo if using simulation.
 
 ## Usage for motion package only
 To launch: <br/>
@@ -26,6 +21,7 @@ Options: <br/>
 
 
 ## Motion Planning Algorithm 
+```
 1. Compute cartesian trajectory to target pose
 2. If fraction of trajectory followed > 0.90
 3.   Execute trajectory 
@@ -36,6 +32,7 @@ Options: <br/>
 7.   Compute cartesian trajectory again
 8.   Execute this trajectory regardless 
 9.   Return fraction
+```
 
 Our motion planning method was developed to workaround some issues we were facing. The inverse kinematics service does not always succeed in return a path to the target pose. To mitigate this problem, we determined poses that were good positions for the arm to start planning towards a target pose. These poses were found through trial and error, and we saved the joint positions of these poses, so that we can directly go to these poses when we need. In addition, we also added a cylindrical collision object around the Baxter’s head to reduce the likelihood of the arms colliding with the screen.
 
