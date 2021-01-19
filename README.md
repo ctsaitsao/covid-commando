@@ -4,7 +4,7 @@ Final project for ME 495: Embedded Systems in Robotics, Northwestern University,
 
 
 ## Overview 
-The Covid Commando is a Baxter robot that takes a person's temperature and indicates if the individual has normal or high temperature. We showcased its use by having it screen individuals that wish to enter the Center of Robotics and Biosystems at Northwestern, where the Baxter robot resides. The robot accomplishes the following tasks: 1) detects the location of a person's forehead, 2) moves the IR thermometer to in front that location, 3) takes the temperature, 4) displays the temperature and corresponding message on screen, 5) blocks or allows the person to pass, and 6) finally returns to the first state. 
+The Covid Commando is a Baxter robot that takes a person's temperature and indicates if the individual has normal or high temperature. The project was showcased by having the robot screen individuals that wish to enter the Center of Robotics and Biosystems at Northwestern, where the Baxter robot resides. The robot accomplishes the following tasks: 1) detects the location of a person's forehead, 2) moves the IR thermometer to in front that location, 3) takes the temperature, 4) displays the temperature and corresponding message on screen, 5) blocks or allows the person to pass, and 6) returns back to the first state. 
 
 ## System Architecture 
 ![system architecture img](images/architecture.png)
